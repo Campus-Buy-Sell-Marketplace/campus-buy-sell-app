@@ -86,7 +86,7 @@ The app communicates with the **Campus Marketplace Backend** through REST APIs f
 
 ## Project Status
 
-**Status:** In Development
+**Status:** In Development.
 
 Developed as part of the **OJT Semester 3 — Product Development** project.
 
