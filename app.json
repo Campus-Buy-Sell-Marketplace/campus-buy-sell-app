@@ -50,10 +50,6 @@
         }
       ]
     ],
-    "extra": {
-      "eas": {
-        "projectId": "unitrade-campus-app"
-      }
-    }
+    "extra": {}
   }
 }
