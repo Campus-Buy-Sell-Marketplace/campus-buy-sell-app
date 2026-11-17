@@ -31,7 +31,6 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE"
       ]
@@ -41,15 +40,43 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.24",
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "buildToolsVersion": "34.0.0"
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#111827",
+          "sounds": []
+        }
+      ],
       [
         "expo-image-picker",
         {
           "photosPermission": "UniTrade needs access to your photos to upload product images.",
           "cameraPermission": "UniTrade needs camera access to take product photos."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "UniTrade needs camera access to take product photos."
+        }
       ]
     ],
-    "extra": {}
+    "extra": {
+      "eas": {
+        "projectId": "3a69dfc9-e858-4b17-88bc-00bb8ace9b4e"
+      }
+    }
   }
 }
