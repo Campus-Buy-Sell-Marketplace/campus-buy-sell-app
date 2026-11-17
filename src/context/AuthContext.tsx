@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     let mounted = true;
     const timer = setTimeout(() => {
       if (mounted) dispatch({ type: 'LOGOUT' });
-    }, 2000);
+    }, 15000);
 
     async function init() {
       try {
