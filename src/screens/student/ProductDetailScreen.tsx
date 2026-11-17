@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,19 @@ import {
   ActivityIndicator,
   Share,
   Alert,
+  Platform,
   Dimensions,
   StatusBar,
 } from 'react-native';
+
+// Web-compatible alert
+const showAlert = (title: string, message: string) => {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n${message}`);
+  } else {
+    showAlert(title, message);
+  }
+};
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -84,7 +94,7 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
     if (!product) return;
     try {
       await Share.share({
-        message: `Check out ${product.title} on LAVSA Campus Marketplace for ₹${product.price.toLocaleString('en-IN')}!`,
+        message: `Check out ${product.title} on LAVSA Campus Marketplace for ?${product.price.toLocaleString('en-IN')}!`,
       });
     } catch (error) {
       // ignore
@@ -104,7 +114,7 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
       }
     } catch {
       setIsSaved(!nextSaved);
-      Alert.alert('Error', 'Could not update wishlist.');
+      showAlert('Error', 'Could not update wishlist.');
     } finally {
       setSavingWishlist(false);
     }
@@ -113,16 +123,16 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   const handleAddToCart = async () => {
     if (!product || addingToCart) return;
     if (product.stock <= 0) {
-      Alert.alert('Out of Stock', 'This item is currently sold out.');
+      showAlert('Out of Stock', 'This item is currently sold out.');
       return;
     }
     setAddingToCart(true);
     try {
       await cartService.addToCart(product.id, quantity);
       await refreshCart();
-      Alert.alert('Added to Cart', `Added ${quantity} item(s) to your cart.`);
+      showAlert('Added to Cart', `Added ${quantity} item(s) to your cart.`);
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.message || 'Failed to add item to cart.');
+      showAlert('Error', err?.response?.data?.message || 'Failed to add item to cart.');
     } finally {
       setAddingToCart(false);
     }
@@ -131,7 +141,7 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   const handleBuyNow = async () => {
     if (!product) return;
     if (product.stock <= 0) {
-      Alert.alert('Out of Stock', 'This item is currently sold out.');
+      showAlert('Out of Stock', 'This item is currently sold out.');
       return;
     }
     try {
@@ -139,7 +149,7 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
       await refreshCart();
       navigation.navigate('CartScreen');
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.message || 'Could not proceed with Buy Now.');
+      showAlert('Error', err?.response?.data?.message || 'Could not proceed with Buy Now.');
     }
   };
 
@@ -254,7 +264,7 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         <View style={styles.bodyContainer}>
           {/* Price */}
           <Text style={styles.priceText}>
-            ₹{product.price ? product.price.toLocaleString('en-IN') : '0'}
+            ?{product.price ? product.price.toLocaleString('en-IN') : '0'}
           </Text>
 
           {/* Title */}
@@ -650,3 +660,4 @@ const styles = StyleSheet.create({
 });
 
 export default ProductDetailScreen;
+

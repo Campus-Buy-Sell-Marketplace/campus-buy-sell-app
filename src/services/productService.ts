@@ -1,6 +1,18 @@
 import apiClient from './apiClient';
 import { Product } from '../types';
 
+// Normalize backend product (image_url string) → app Product (images array)
+function normalize(p: any): Product {
+  return {
+    ...p,
+    images: p.images && p.images.length > 0
+      ? p.images
+      : p.image_url
+        ? [p.image_url]
+        : [],
+  };
+}
+
 export const productService = {
   async getProducts(params?: {
     category?: string;
@@ -13,17 +25,18 @@ export const productService = {
     const res = await apiClient.get('/products', { params });
     const data = res.data.data ?? res.data;
     if (Array.isArray(data)) {
-      return { products: data, total: data.length };
+      return { products: data.map(normalize), total: data.length };
     }
+    const products = data.products ?? data.items ?? [];
     return {
-      products: data.products ?? data.items ?? [],
-      total: data.total ?? (data.products?.length ?? 0),
+      products: products.map(normalize),
+      total: data.total ?? products.length,
     };
   },
 
   async getProductById(id: string): Promise<Product> {
     const res = await apiClient.get(`/products/${id}`);
-    return res.data.data ?? res.data.product ?? res.data;
+    return normalize(res.data.data ?? res.data.product ?? res.data);
   },
 
   async createProduct(data: FormData): Promise<Product> {
