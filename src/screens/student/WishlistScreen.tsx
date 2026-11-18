@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,13 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Spacing, Typography, BorderRadius } from '../../constants/theme';
 import ProductCard from '../../components/common/ProductCard';
 import EmptyState from '../../components/common/EmptyState';
 import { userService } from '../../services/userService';
-import { productService } from '../../services/productService';
 import { Product } from '../../types';
 
 interface WishlistScreenProps {
@@ -36,24 +36,7 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({ navigation }) =>
     if (!isRefresh) setLoading(true);
     setError(null);
     try {
-      const result: any = await userService.getWishlist();
-      let productList: Product[] = [];
-
-      if (Array.isArray(result) && result.length > 0) {
-        if (typeof result[0] === 'object' && result[0] !== null && 'title' in result[0]) {
-          productList = result as Product[];
-        } else {
-          // It's a list of product IDs
-          const idList = result.map((item: any) =>
-            typeof item === 'string' ? item : item.product_id || item.id
-          );
-          const productPromises = idList.map((id: string) =>
-            productService.getProductById(id).catch(() => null)
-          );
-          const resolved = await Promise.all(productPromises);
-          productList = resolved.filter((p): p is Product => p !== null);
-        }
-      }
+      const productList = await userService.getWishlistProducts();
       setProducts(productList);
     } catch (err: any) {
       setError('Could not load your saved items.');
@@ -63,9 +46,12 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({ navigation }) =>
     }
   }, []);
 
-  useEffect(() => {
-    fetchWishlist();
-  }, [fetchWishlist]);
+  // Re-fetch wishlist whenever the screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchWishlist(false);
+    }, [fetchWishlist])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -88,7 +74,7 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({ navigation }) =>
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Saved Items</Text>
+        <Text style={styles.headerTitle}>My Wishlist</Text>
         <Text style={styles.itemCount}>
           {products.length} {products.length === 1 ? 'item' : 'items'}
         </Text>
@@ -123,9 +109,9 @@ export const WishlistScreen: React.FC<WishlistScreenProps> = ({ navigation }) =>
           ListEmptyComponent={
             <EmptyState
               icon="❤️"
-              title="No saved items yet"
-              subtitle="Tap the heart icon on any listing to save it here for later."
-              actionLabel="Discover Items"
+              title="Your wishlist is empty"
+              subtitle="Browse products and tap the heart icon to save items for later."
+              actionLabel="Browse Products"
               onAction={() => navigation.navigate('BrowseTab')}
             />
           }

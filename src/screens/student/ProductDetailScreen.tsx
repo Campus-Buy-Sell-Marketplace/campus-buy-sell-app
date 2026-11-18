@@ -19,7 +19,7 @@ const showAlert = (title: string, message: string) => {
   if (Platform.OS === 'web') {
     window.alert(`${title}\n${message}`);
   } else {
-    showAlert(title, message);
+    Alert.alert(title, message);
   }
 };
 import { SafeAreaView } from 'react-native-safe-area-context';

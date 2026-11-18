@@ -29,7 +29,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isWishlisted = false,
   style,
 }) => {
-  const imageUrl = product.images?.[0];
+  const imageUrl = product.images?.[0] || (product as any).image_url;
 
   return (
     <TouchableOpacity

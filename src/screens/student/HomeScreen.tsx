@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Shadow, Spacing, Typography, BorderRadius } from '../../constants/theme';
@@ -77,9 +78,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     fetchProducts();
   }, [fetchProducts]);
 
-  useEffect(() => {
-    loadWishlist();
-  }, [loadWishlist]);
+  useFocusEffect(
+    useCallback(() => {
+      loadWishlist();
+    }, [loadWishlist])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
