@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Alert,
   RefreshControl,
   StatusBar,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +33,12 @@ export const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
   const [checkingOut, setCheckingOut] = useState(false);
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Checkout modal state
+  const [checkoutModalVisible, setCheckoutModalVisible] = useState(false);
+  const [meetupLocation, setMeetupLocation] = useState('Campus Central Library Gate');
+  const [meetupTime, setMeetupTime] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'OFFLINE' | 'ONLINE'>('OFFLINE');
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -89,22 +97,44 @@ export const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
 
   const handleCheckout = async () => {
     if (items.length === 0) return;
+
+    if (!meetupLocation.trim()) {
+      Alert.alert('Missing Info', 'Please enter a meetup location.');
+      return;
+    }
+    if (!meetupTime.trim()) {
+      Alert.alert('Missing Info', 'Please enter a preferred meetup time.');
+      return;
+    }
+
     setCheckingOut(true);
     setError(null);
     try {
-      const cartItemIds = items.map((i) => i.id);
-      await orderService.createOrder(cartItemIds);
+      const result = await orderService.checkout({
+        meetupLocation: meetupLocation.trim(),
+        meetupTime: meetupTime.trim(),
+        paymentMethod,
+      });
+
       await refreshCart();
-      Alert.alert(
-        'Order Placed!',
-        'Your order has been created. Coordinate delivery with your seller.',
-        [
-          {
-            text: 'View Orders',
-            onPress: () => navigation.navigate('OrdersScreen'),
-          },
-        ]
-      );
+      setCheckoutModalVisible(false);
+
+      if (paymentMethod === 'ONLINE') {
+        const orderId = result.order?.id || (result as any).order?.orderId || (result as any).orderId;
+        navigation.navigate('PaymentWebView', {
+          orderId,
+        });
+      } else {
+        // Offline cash — show OTP
+        const otp = (result as any).order?.deliveryOtp || result.deliveryOtp || result.order?.delivery_otp;
+        Alert.alert(
+          '🎉 Order Placed!',
+          otp
+            ? `Your order is confirmed!\n\nDelivery OTP: ${otp}\n\nShare this OTP with the seller when you receive your item to confirm delivery.`
+            : 'Your order has been placed! Coordinate meetup with your seller.',
+          [{ text: 'View Orders', onPress: () => navigation.navigate('OrdersScreen') }]
+        );
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to complete checkout.';
       setError(msg);
@@ -252,7 +282,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
             {/* Checkout Button */}
             <TouchableOpacity
               style={[styles.checkoutBtn, checkingOut && styles.btnDisabled]}
-              onPress={handleCheckout}
+              onPress={() => setCheckoutModalVisible(true)}
               disabled={checkingOut}
               activeOpacity={0.85}
             >
@@ -265,6 +295,78 @@ export const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
           </View>
         </View>
       )}
+
+      {/* Checkout Modal */}
+      <Modal
+        visible={checkoutModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setCheckoutModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Confirm Order</Text>
+              <TouchableOpacity onPress={() => setCheckoutModalVisible(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={22} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>Meetup Location</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={meetupLocation}
+              onChangeText={setMeetupLocation}
+              placeholder="e.g. Campus Central Library Gate"
+              placeholderTextColor={Colors.textMuted}
+            />
+
+            <Text style={styles.modalLabel}>Preferred Meetup Time</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={meetupTime}
+              onChangeText={setMeetupTime}
+              placeholder="e.g. Tomorrow 3 PM"
+              placeholderTextColor={Colors.textMuted}
+            />
+
+            <Text style={styles.modalLabel}>Payment Method</Text>
+            <View style={styles.paymentRow}>
+              <TouchableOpacity
+                style={[styles.paymentOption, paymentMethod === 'OFFLINE' && styles.paymentOptionActive]}
+                onPress={() => setPaymentMethod('OFFLINE')}
+              >
+                <Ionicons name="cash-outline" size={18} color={paymentMethod === 'OFFLINE' ? Colors.white : Colors.text} />
+                <Text style={[styles.paymentOptionText, paymentMethod === 'OFFLINE' && styles.paymentOptionTextActive]}>
+                  Cash on Meetup
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.paymentOption, paymentMethod === 'ONLINE' && styles.paymentOptionActive]}
+                onPress={() => setPaymentMethod('ONLINE')}
+              >
+                <Ionicons name="card-outline" size={18} color={paymentMethod === 'ONLINE' ? Colors.white : Colors.text} />
+                <Text style={[styles.paymentOptionText, paymentMethod === 'ONLINE' && styles.paymentOptionTextActive]}>
+                  Online Payment
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.confirmBtn, checkingOut && styles.btnDisabled]}
+              onPress={handleCheckout}
+              disabled={checkingOut}
+              activeOpacity={0.85}
+            >
+              {checkingOut ? (
+                <ActivityIndicator color={Colors.white} />
+              ) : (
+                <Text style={styles.confirmBtnText}>Place Order • ₹{total.toLocaleString('en-IN')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -455,6 +557,92 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    paddingBottom: Spacing['3xl'],
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    fontSize: Typography.lg,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  modalCloseBtn: {
+    padding: Spacing.xs,
+  },
+  modalLabel: {
+    fontSize: Typography.sm,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 6,
+    marginTop: Spacing.sm,
+  },
+  modalInput: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    fontSize: Typography.base,
+    color: Colors.text,
+    marginBottom: Spacing.xs,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  paymentOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  paymentOptionActive: {
+    backgroundColor: Colors.black,
+    borderColor: Colors.black,
+  },
+  paymentOptionText: {
+    fontSize: Typography.sm,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  paymentOptionTextActive: {
+    color: Colors.white,
+  },
+  confirmBtn: {
+    backgroundColor: Colors.black,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.sm,
+  },
+  confirmBtnText: {
+    fontSize: Typography.base,
+    fontWeight: '700',
+    color: Colors.white,
   },
 });
 

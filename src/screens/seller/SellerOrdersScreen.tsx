@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,18 +18,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Shadow, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { sellerService } from '../../services/sellerService';
+import { orderService } from '../../services/orderService';
 import { Avatar } from '../../components/common/Avatar';
 import { Badge } from '../../components/common/Badge';
 import { Order, OrderStatus } from '../../types';
 
-type OrderFilter = 'All' | 'Pending' | 'Confirmed' | 'Shipped' | 'Delivered' | 'Cancelled';
+type OrderFilter = 'All' | 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
 
 const FILTER_TABS: OrderFilter[] = [
   'All',
   'Pending',
   'Confirmed',
-  'Shipped',
-  'Delivered',
+  'Completed',
   'Cancelled',
 ];
 
@@ -43,15 +43,14 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<OrderFilter>('All');
 
-  // Status Action Modal
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
-  const [statusModalVisible, setStatusModalVisible] = useState(false);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  // OTP Verification state
+  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
+  const [verifyingOtp, setVerifyingOtp] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     try {
-      const data = await sellerService.getSellerOrders();
+      const data = await orderService.getSellerOrders();
       setOrders(data || []);
     } catch (err) {
       setOrders([]);
@@ -70,60 +69,52 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
     fetchOrders(true);
   };
 
-  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
-    setUpdatingStatus(true);
+  const handleVerifyOtp = async (orderId: string) => {
+    const otp = (otpInputs[orderId] || '').trim();
+    if (otp.length !== 6) {
+      Alert.alert('Invalid OTP', 'Please enter the 6-digit OTP from the buyer.');
+      return;
+    }
+    setVerifyingOtp(orderId);
     try {
-      await sellerService.updateOrderStatus(orderId, newStatus);
+      await orderService.verifyDeliveryOtp(orderId, otp);
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        prev.map((o) => (o.id === orderId ? { ...o, status: 'COMPLETED' } : o))
       );
-      setStatusModalVisible(false);
-      setSelectedOrder(null);
-      Alert.alert('Status Updated', `Order marked as ${newStatus}.`);
+      setOtpInputs((prev) => ({ ...prev, [orderId]: '' }));
+      Alert.alert('✅ Delivery Confirmed!', 'The order has been marked as completed.');
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to update order status.';
-      Alert.alert('Error', msg);
+      const msg = err?.response?.data?.message || 'OTP verification failed. Please check and try again.';
+      Alert.alert('Verification Failed', msg);
     } finally {
-      setUpdatingStatus(false);
+      setVerifyingOtp(null);
     }
   };
 
   const filteredOrders = orders.filter((order) => {
     if (activeFilter === 'All') return true;
     const s = (order.status || '').toUpperCase();
-    return s.includes(activeFilter.toUpperCase());
+    if (activeFilter === 'Pending') return s === 'PENDING_MEETUP' || s === 'PENDING_PAYMENT';
+    if (activeFilter === 'Confirmed') return s === 'CONFIRMED' || s === 'PAID_PENDING_MEETUP';
+    if (activeFilter === 'Completed') return s === 'COMPLETED';
+    if (activeFilter === 'Cancelled') return s === 'CANCELLED';
+    return true;
   });
 
-  const getStatusButtonConfig = (status: string) => {
+  const getStatusLabel = (status: string) => {
     const s = (status || '').toUpperCase();
-    if (s === 'PENDING') {
-      return {
-        label: 'Confirm Order',
-        nextStatus: 'CONFIRMED',
-        bg: '#eff6ff',
-        text: '#2563eb',
-        borderColor: '#bfdbfe',
-      };
-    }
-    if (s === 'CONFIRMED') {
-      return {
-        label: 'Mark Shipped',
-        nextStatus: 'SHIPPED',
-        bg: '#f5f3ff',
-        text: '#7c3aed',
-        borderColor: '#ddd6fe',
-      };
-    }
-    if (s === 'SHIPPED') {
-      return {
-        label: 'Mark Delivered',
-        nextStatus: 'DELIVERED',
-        bg: '#ecfdf5',
-        text: '#059669',
-        borderColor: '#a7f3d0',
-      };
-    }
-    return null;
+    if (s === 'PENDING_MEETUP') return { label: 'Meetup Pending', bg: '#fef3c7', text: '#b45309' };
+    if (s === 'PAID_PENDING_MEETUP') return { label: 'Paid – Meetup', bg: '#dbeafe', text: '#1d4ed8' };
+    if (s === 'PENDING_PAYMENT') return { label: 'Payment Pending', bg: '#fce7f3', text: '#be185d' };
+    if (s === 'CONFIRMED') return { label: 'Confirmed', bg: '#eff6ff', text: '#2563eb' };
+    if (s === 'COMPLETED') return { label: 'Completed', bg: '#dcfce7', text: '#15803d' };
+    if (s === 'CANCELLED') return { label: 'Cancelled', bg: '#fee2e2', text: '#b91c1c' };
+    return { label: status, bg: Colors.borderLight, text: Colors.textSecondary };
+  };
+
+  const canVerifyOtp = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return s === 'PENDING_MEETUP' || s === 'PAID_PENDING_MEETUP';
   };
 
   const renderOrderItem = ({ item }: { item: any }) => {
@@ -150,8 +141,10 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
     const dateFormatted = item.created_at
       ? new Date(item.created_at).toLocaleDateString()
       : 'Recent';
-    const status = (item.status || 'PENDING').toUpperCase();
-    const actionConfig = getStatusButtonConfig(status);
+    const status = (item.status || 'PENDING_MEETUP').toUpperCase();
+    const statusConfig = getStatusLabel(status);
+    const needsOtp = canVerifyOtp(status);
+    const isVerifyingThisOrder = verifyingOtp === item.id;
 
     return (
       <View style={[styles.orderCard, Shadow.sm]}>
@@ -172,7 +165,11 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
               Qty: {quantity} • {dateFormatted}
             </Text>
           </View>
-          <Badge label={status} type="status" />
+          <View style={[styles.statusPill, { backgroundColor: statusConfig.bg }]}>
+            <Text style={[styles.statusPillText, { color: statusConfig.text }]}>
+              {statusConfig.label}
+            </Text>
+          </View>
         </View>
 
         {/* Middle: Buyer Details & Total Price */}
@@ -192,31 +189,45 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
           </View>
         </View>
 
-        {/* Bottom: Action Buttons */}
-        <View style={styles.actionRow}>
-          {actionConfig ? (
-            <TouchableOpacity
-              style={[
-                styles.statusUpdateButton,
-                { backgroundColor: actionConfig.bg, borderColor: actionConfig.borderColor },
-              ]}
-              activeOpacity={0.8}
-              onPress={() => {
-                setSelectedOrder(item);
-                setStatusModalVisible(true);
-              }}
-            >
-              <Text style={[styles.statusUpdateText, { color: actionConfig.text }]}>
-                {actionConfig.label}
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.statusCompletePill}>
-              <Text style={styles.statusCompleteText}>
-                {status === 'DELIVERED' ? '✓ Completed' : status}
-              </Text>
+        {/* OTP Verification for PENDING_MEETUP orders */}
+        {needsOtp && (
+          <View style={styles.otpSection}>
+            <Text style={styles.otpLabel}>Enter buyer's delivery OTP to confirm:</Text>
+            <View style={styles.otpRow}>
+              <TextInput
+                style={styles.otpInput}
+                value={otpInputs[item.id] || ''}
+                onChangeText={(text) =>
+                  setOtpInputs((prev) => ({ ...prev, [item.id]: text.replace(/[^0-9]/g, '').slice(0, 6) }))
+                }
+                placeholder="6-digit OTP"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+              <TouchableOpacity
+                style={[styles.verifyBtn, isVerifyingThisOrder && { opacity: 0.6 }]}
+                onPress={() => handleVerifyOtp(item.id)}
+                disabled={isVerifyingThisOrder}
+                activeOpacity={0.8}
+              >
+                {isVerifyingThisOrder ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.verifyBtnText}>Verify</Text>
+                )}
+              </TouchableOpacity>
             </View>
-          )}
+          </View>
+        )}
+
+        {/* Bottom: Chat Button */}
+        <View style={styles.actionRow}>
+          <View style={styles.statusCompletePill}>
+            <Text style={styles.statusCompleteText}>
+              {status === 'COMPLETED' ? '✓ Completed' : status === 'CANCELLED' ? '✗ Cancelled' : `Order #${item.id?.slice(0, 8)}`}
+            </Text>
+          </View>
 
           <TouchableOpacity
             style={styles.chatButton}
@@ -309,116 +320,7 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
         />
       )}
 
-      {/* Status Update Options Modal */}
-      <Modal
-        visible={statusModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setStatusModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setStatusModalVisible(false)}
-        >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Update Order Status</Text>
-              <TouchableOpacity
-                onPress={() => setStatusModalVisible(false)}
-                style={styles.closeBtn}
-              >
-                <Ionicons name="close" size={20} color={Colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalSubtitle}>
-              Update progress for order #{selectedOrder?.id?.slice(0, 8) || ''}:
-            </Text>
-
-            <View style={styles.statusOptions}>
-              <TouchableOpacity
-                style={[styles.statusOptionItem, { borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }]}
-                onPress={() =>
-                  selectedOrder && handleUpdateStatus(selectedOrder.id, 'CONFIRMED')
-                }
-                disabled={updatingStatus}
-              >
-                <Ionicons name="checkmark-circle-outline" size={20} color="#2563eb" />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.statusOptionTitle, { color: '#2563eb' }]}>
-                    Confirm Order
-                  </Text>
-                  <Text style={styles.statusOptionSub}>
-                    Accept order and prepare for delivery
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.statusOptionItem, { borderColor: '#ddd6fe', backgroundColor: '#f5f3ff' }]}
-                onPress={() =>
-                  selectedOrder && handleUpdateStatus(selectedOrder.id, 'SHIPPED')
-                }
-                disabled={updatingStatus}
-              >
-                <Ionicons name="bicycle-outline" size={20} color="#7c3aed" />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.statusOptionTitle, { color: '#7c3aed' }]}>
-                    Mark as Shipped / Out for Handoff
-                  </Text>
-                  <Text style={styles.statusOptionSub}>
-                    Item is en route to campus meetup spot
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.statusOptionItem, { borderColor: '#a7f3d0', backgroundColor: '#ecfdf5' }]}
-                onPress={() =>
-                  selectedOrder && handleUpdateStatus(selectedOrder.id, 'DELIVERED')
-                }
-                disabled={updatingStatus}
-              >
-                <Ionicons name="checkmark-done-circle-outline" size={20} color="#059669" />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.statusOptionTitle, { color: '#059669' }]}>
-                    Mark as Delivered
-                  </Text>
-                  <Text style={styles.statusOptionSub}>
-                    Buyer has received the item
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.statusOptionItem, { borderColor: '#fecaca', backgroundColor: '#fef2f2' }]}
-                onPress={() =>
-                  selectedOrder && handleUpdateStatus(selectedOrder.id, 'CANCELLED')
-                }
-                disabled={updatingStatus}
-              >
-                <Ionicons name="close-circle-outline" size={20} color="#dc2626" />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.statusOptionTitle, { color: '#dc2626' }]}>
-                    Cancel Order
-                  </Text>
-                  <Text style={styles.statusOptionSub}>
-                    Cancel this order and notify buyer
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {updatingStatus && (
-              <View style={styles.updatingLoader}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-                <Text style={styles.updatingText}>Updating order...</Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* Status Update Options Modal - removed, now using inline OTP */}
     </SafeAreaView>
   );
 };
@@ -578,15 +480,60 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
   },
-  statusUpdateButton: {
-    flex: 1,
-    paddingVertical: 9,
+  statusPill: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    alignSelf: 'flex-start',
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  otpSection: {
+    backgroundColor: '#f8fafc',
     borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  otpLabel: {
+    fontSize: Typography.xs,
+    color: Colors.textSecondary,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  otpRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    alignItems: 'center',
+  },
+  otpInput: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    fontSize: Typography.sm,
+    letterSpacing: 2,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  verifyBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    minWidth: 70,
   },
-  statusUpdateText: {
+  verifyBtnText: {
+    color: Colors.white,
     fontSize: Typography.xs,
     fontWeight: '700',
   },

@@ -14,14 +14,25 @@ export const orderService = {
     return res.data.data ?? res.data.order ?? res.data;
   },
 
-  async createOrder(cartItemIds: string[]): Promise<Order[]> {
-    const res = await apiClient.post('/orders', { cart_item_ids: cartItemIds });
-    const data = res.data.data ?? res.data;
-    if (Array.isArray(data)) return data;
-    return data.orders ?? [data.order ?? data];
+  async checkout(data: {
+    meetupLocation: string;
+    meetupTime: string;
+    meetupNotes?: string;
+    paymentMethod: 'OFFLINE' | 'ONLINE';
+  }): Promise<{ order: Order; deliveryOtp?: string; razorpayOrderId?: string }> {
+    const res = await apiClient.post('/orders/checkout', data);
+    return res.data.data ?? res.data;
   },
 
-  async cancelOrder(id: string): Promise<void> {
-    await apiClient.patch(`/orders/${id}/cancel`);
+  async verifyDeliveryOtp(orderId: string, otp: string): Promise<{ message: string }> {
+    const res = await apiClient.post(`/orders/${orderId}/verify-otp`, { otp });
+    return res.data;
+  },
+
+  async getSellerOrders(): Promise<Order[]> {
+    const res = await apiClient.get('/orders/seller/incoming');
+    const data = res.data.data ?? res.data;
+    if (Array.isArray(data)) return data;
+    return data.orders ?? [];
   },
 };

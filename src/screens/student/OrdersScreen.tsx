@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,11 +30,12 @@ const STATUS_CONFIG: Record<
   OrderStatus,
   { label: string; bg: string; text: string }
 > = {
-  PENDING: { label: 'Pending', bg: '#fef3c7', text: '#b45309' }, // Amber
-  CONFIRMED: { label: 'Confirmed', bg: '#dbeafe', text: '#1d4ed8' }, // Blue
-  SHIPPED: { label: 'Shipped', bg: '#f3e8ff', text: '#7e22ce' }, // Purple
-  DELIVERED: { label: 'Delivered', bg: '#dcfce7', text: '#15803d' }, // Green
-  CANCELLED: { label: 'Cancelled', bg: '#fee2e2', text: '#b91c1c' }, // Red
+  PENDING_MEETUP: { label: 'Meetup Pending', bg: '#fef3c7', text: '#b45309' },     // Amber
+  PAID_PENDING_MEETUP: { label: 'Paid – Meetup', bg: '#dbeafe', text: '#1d4ed8' }, // Blue
+  PENDING_PAYMENT: { label: 'Payment Pending', bg: '#fce7f3', text: '#be185d' },   // Pink
+  CONFIRMED: { label: 'Confirmed', bg: '#eff6ff', text: '#2563eb' },               // Blue
+  COMPLETED: { label: 'Completed', bg: '#dcfce7', text: '#15803d' },               // Green
+  CANCELLED: { label: 'Cancelled', bg: '#fee2e2', text: '#b91c1c' },              // Red
 };
 
 export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
@@ -42,7 +43,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [revealedOtps, setRevealedOtps] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async (isRefresh = false) => {
@@ -68,43 +69,25 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
     fetchOrders(true);
   };
 
-  const handleCancelOrder = (orderId: string) => {
-    Alert.alert(
-      'Cancel Order',
-      'Are you sure you want to cancel this order?',
-      [
-        { text: 'Keep Order', style: 'cancel' },
-        {
-          text: 'Cancel Order',
-          style: 'destructive',
-          onPress: async () => {
-            setCancellingId(orderId);
-            try {
-              await orderService.cancelOrder(orderId);
-              setOrders((prev) =>
-                prev.map((o) =>
-                  o.id === orderId ? { ...o, status: 'CANCELLED' as OrderStatus } : o
-                )
-              );
-              Alert.alert('Order Cancelled', 'Your order was successfully cancelled.');
-            } catch (err: any) {
-              Alert.alert('Error', err?.response?.data?.message || 'Failed to cancel order.');
-            } finally {
-              setCancellingId(null);
-            }
-          },
-        },
-      ]
-    );
+  const toggleOtpReveal = (orderId: string) => {
+    setRevealedOtps((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) {
+        next.delete(orderId);
+      } else {
+        next.add(orderId);
+      }
+      return next;
+    });
   };
 
   const filteredOrders = orders.filter((order) => {
     if (activeTab === 'All') return true;
     if (activeTab === 'Active') {
-      return ['PENDING', 'CONFIRMED', 'SHIPPED'].includes(order.status);
+      return ['PENDING_MEETUP', 'PAID_PENDING_MEETUP', 'PENDING_PAYMENT', 'CONFIRMED'].includes(order.status);
     }
     if (activeTab === 'Completed') {
-      return order.status === 'DELIVERED';
+      return order.status === 'COMPLETED';
     }
     if (activeTab === 'Cancelled') {
       return order.status === 'CANCELLED';
@@ -190,9 +173,9 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
               bg: Colors.borderLight,
               text: Colors.textSecondary,
             };
-            const isActive = ['PENDING', 'CONFIRMED', 'SHIPPED'].includes(item.status);
-            const isPending = item.status === 'PENDING';
-            const isCancelling = cancellingId === item.id;
+            const isActive = ['PENDING_MEETUP', 'PAID_PENDING_MEETUP', 'PENDING_PAYMENT', 'CONFIRMED'].includes(item.status);
+            const hasOtp = item.delivery_otp && ['PENDING_MEETUP', 'PAID_PENDING_MEETUP'].includes(item.status);
+            const isOtpRevealed = revealedOtps.has(item.id);
             const formattedDate = new Date(item.created_at).toLocaleDateString('en-IN', {
               day: 'numeric',
               month: 'short',
@@ -253,18 +236,36 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
                     </TouchableOpacity>
                   )}
 
-                  {isPending && (
+                  {item.status === 'PENDING_PAYMENT' && (
                     <TouchableOpacity
-                      style={styles.cancelBtn}
-                      onPress={() => handleCancelOrder(item.id)}
-                      disabled={isCancelling}
+                      style={styles.payNowBtn}
+                      onPress={() =>
+                        navigation.navigate('PaymentWebView', {
+                          orderId: item.id,
+                        })
+                      }
                       activeOpacity={0.8}
                     >
-                      {isCancelling ? (
-                        <ActivityIndicator size="small" color={Colors.danger} />
-                      ) : (
-                        <Text style={styles.cancelBtnText}>Cancel Order</Text>
-                      )}
+                      <Ionicons name="card-outline" size={16} color={Colors.white} style={{ marginRight: 6 }} />
+                      <Text style={styles.payNowBtnText}>Pay Now</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {hasOtp && (
+                    <TouchableOpacity
+                      style={styles.otpBtn}
+                      onPress={() => toggleOtpReveal(item.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={isOtpRevealed ? 'eye-off-outline' : 'eye-outline'}
+                        size={16}
+                        color={Colors.white}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text style={styles.otpBtnText}>
+                        {isOtpRevealed ? item.delivery_otp : 'Show OTP'}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -459,6 +460,35 @@ const styles = StyleSheet.create({
     fontSize: Typography.sm,
     fontWeight: '600',
     color: Colors.danger,
+  },
+  otpBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: '#7c3aed',
+    borderRadius: BorderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  otpBtnText: {
+    fontSize: Typography.sm,
+    fontWeight: '700',
+    color: Colors.white,
+    letterSpacing: 1,
+  },
+  payNowBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: '#059669',
+    borderRadius: BorderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  payNowBtnText: {
+    fontSize: Typography.sm,
+    fontWeight: '700',
+    color: Colors.white,
   },
 });
 

@@ -102,7 +102,7 @@ export const ChatRoomScreen: React.FC<ChatRoomScreenProps> = ({
 
     const setupSocket = async () => {
       try {
-        const token = await AsyncStorage.getItem('auth_token');
+        const token = await AsyncStorage.getItem('authToken');
         if (token && orderId) {
           activeSocket = chatService.connectSocket(token);
           chatService.joinRoom(orderId);

@@ -1,5 +1,11 @@
 export type UserRole = 'STUDENT' | 'SELLER' | 'ADMIN' | 'SUPER_ADMIN';
-export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+export type OrderStatus =
+  | 'PENDING_MEETUP'
+  | 'PAID_PENDING_MEETUP'
+  | 'PENDING_PAYMENT'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'CONFIRMED';
 export type ProductCondition = 'NEW' | 'LIKE_NEW' | 'GOOD' | 'FAIR' | 'POOR';
 export type ProductCategory = 'Electronics' | 'Books' | 'Clothing' | 'Furniture' | 'Sports' | 'Other';
 
@@ -38,6 +44,14 @@ export interface CartItem {
   product: Product;
 }
 
+export interface OrderItem {
+  product_id: string;
+  title: string;
+  price: number;
+  quantity: number;
+  image_url?: string;
+}
+
 export interface Order {
   id: string;
   buyer_id: string;
@@ -46,7 +60,14 @@ export interface Order {
   quantity: number;
   total_price: number;
   status: OrderStatus;
+  payment_method?: 'OFFLINE' | 'ONLINE';
+  meetup_location?: string;
+  meetup_time?: string;
+  meetup_notes?: string;
+  delivery_otp?: string;
+  razorpay_order_id?: string;
   created_at: string;
+  items?: OrderItem[];
   product: Product;
   buyer: User;
   seller: User;
@@ -135,7 +156,7 @@ export type StudentStackParamList = {
   EditProfile: undefined;
   Settings: undefined;
   SellerOnboarding: undefined;
-  PaymentWebView: { paymentUrl: string; orderId: string };
+  PaymentWebView: { paymentUrl?: string; orderId: string };
 };
 
 export type SellerTabParamList = {
