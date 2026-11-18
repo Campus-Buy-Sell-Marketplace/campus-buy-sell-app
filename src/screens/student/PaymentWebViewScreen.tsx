@@ -16,6 +16,8 @@ import { Colors } from '../../constants/colors';
 import { Shadow, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import { paymentService, PaymentInitResponse } from '../../services/paymentService';
 
+const WebViewComponent = WebView as any;
+
 interface PaymentWebViewScreenProps {
   navigation: any;
   route: any;
@@ -232,7 +234,7 @@ export const PaymentWebViewScreen: React.FC<PaymentWebViewScreenProps> = ({
       ) : (
         <View style={styles.webViewWrapper}>
           {(initData || paymentUrl) && (
-            <WebView
+            <WebViewComponent
               ref={webViewRef}
               source={
                 razorpayHtml
@@ -351,7 +353,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.base,
   },
   loaderOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',

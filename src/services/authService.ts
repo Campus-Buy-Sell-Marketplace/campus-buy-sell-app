@@ -36,7 +36,7 @@ export const authService = {
     try {
       await apiClient.post('/auth/logout');
     } catch {} finally {
-      await AsyncStorage.multiRemove(['authToken', 'userData']);
+      await (AsyncStorage as any).multiRemove(['authToken', 'userData']);
     }
   },
 

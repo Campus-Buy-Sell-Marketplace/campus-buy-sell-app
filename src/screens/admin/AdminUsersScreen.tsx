@@ -323,7 +323,7 @@ export const AdminUsersScreen: React.FC<AdminUsersScreenProps> = () => {
               <View style={styles.footerLoader}>
                 <ActivityIndicator size="small" color={Colors.primary} />
               </View>
-            ) : null
+            ) : undefined
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
