@@ -9,6 +9,7 @@ interface CartContextType {
   total: number;
   isLoading: boolean;
   addToCart: (productId: string, quantity?: number) => Promise<void>;
+  updateQuantity: (cartItemId: string, quantity: number) => Promise<void>;
   removeFromCart: (cartItemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
@@ -46,6 +47,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await refreshCart();
   };
 
+  const updateQuantity = async (cartItemId: string, quantity: number) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === cartItemId ? { ...item, quantity } : item))
+    );
+    try {
+      await cartService.updateCartItem(cartItemId, quantity);
+    } catch {
+      await refreshCart();
+    }
+  };
+
   const removeFromCart = async (cartItemId: string) => {
     // Optimistic removal
     setItems((prev) => prev.filter((item) => item.id !== cartItemId));
@@ -67,8 +79,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const itemCount = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
   const total = items.reduce((sum, item) => {
-    const price = item.product?.price ?? 0;
-    const qty = item.quantity ?? 1;
+    const price = item.price || item.product?.price || 0;
+    const qty = item.quantity || 1;
     return sum + price * qty;
   }, 0);
 
@@ -80,6 +92,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         total,
         isLoading,
         addToCart,
+        updateQuantity,
         removeFromCart,
         clearCart,
         refreshCart,

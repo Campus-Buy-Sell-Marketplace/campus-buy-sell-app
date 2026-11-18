@@ -17,7 +17,6 @@ import { Colors } from '../../constants/colors';
 import { Shadow, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import EmptyState from '../../components/common/EmptyState';
 import { orderService } from '../../services/orderService';
-import { Order, OrderStatus } from '../../types';
 
 interface OrdersScreenProps {
   navigation: any;
@@ -26,20 +25,23 @@ interface OrdersScreenProps {
 type TabType = 'All' | 'Active' | 'Completed' | 'Cancelled';
 const TABS: TabType[] = ['All', 'Active', 'Completed', 'Cancelled'];
 
-const STATUS_CONFIG: Record<
-  OrderStatus,
-  { label: string; bg: string; text: string }
-> = {
-  PENDING: { label: 'Pending', bg: '#fef3c7', text: '#b45309' }, // Amber
-  CONFIRMED: { label: 'Confirmed', bg: '#dbeafe', text: '#1d4ed8' }, // Blue
-  SHIPPED: { label: 'Shipped', bg: '#f3e8ff', text: '#7e22ce' }, // Purple
-  DELIVERED: { label: 'Delivered', bg: '#dcfce7', text: '#15803d' }, // Green
-  CANCELLED: { label: 'Cancelled', bg: '#fee2e2', text: '#b91c1c' }, // Red
+// Match real backend statuses
+const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+  PENDING_MEETUP:       { label: 'Pending Meetup',  bg: '#fef3c7', text: '#b45309' },
+  PAID_PENDING_MEETUP:  { label: 'Paid – Meetup',   bg: '#dbeafe', text: '#1d4ed8' },
+  PENDING_PAYMENT:      { label: 'Awaiting Payment', bg: '#fff7ed', text: '#c2410c' },
+  COMPLETED:            { label: 'Completed',         bg: '#dcfce7', text: '#15803d' },
+  CANCELLED:            { label: 'Cancelled',         bg: '#fee2e2', text: '#b91c1c' },
+  // legacy fallbacks
+  PENDING:    { label: 'Pending',   bg: '#fef3c7', text: '#b45309' },
+  CONFIRMED:  { label: 'Confirmed', bg: '#dbeafe', text: '#1d4ed8' },
+  SHIPPED:    { label: 'Shipped',   bg: '#f3e8ff', text: '#7e22ce' },
+  DELIVERED:  { label: 'Delivered', bg: '#dcfce7', text: '#15803d' },
 };
 
 export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<TabType>('All');
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
               await orderService.cancelOrder(orderId);
               setOrders((prev) =>
                 prev.map((o) =>
-                  o.id === orderId ? { ...o, status: 'CANCELLED' as OrderStatus } : o
+                  o.id === orderId ? { ...o, status: 'CANCELLED' } : o
                 )
               );
               Alert.alert('Order Cancelled', 'Your order was successfully cancelled.');
@@ -98,17 +100,16 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
     );
   };
 
+  const isActive = (status: string) =>
+    ['PENDING_MEETUP', 'PAID_PENDING_MEETUP', 'PENDING_PAYMENT', 'PENDING', 'CONFIRMED', 'SHIPPED'].includes(status);
+  const isCompleted = (status: string) => ['COMPLETED', 'DELIVERED'].includes(status);
+
   const filteredOrders = orders.filter((order) => {
+    const s = order.status || '';
     if (activeTab === 'All') return true;
-    if (activeTab === 'Active') {
-      return ['PENDING', 'CONFIRMED', 'SHIPPED'].includes(order.status);
-    }
-    if (activeTab === 'Completed') {
-      return order.status === 'DELIVERED';
-    }
-    if (activeTab === 'Cancelled') {
-      return order.status === 'CANCELLED';
-    }
+    if (activeTab === 'Active') return isActive(s);
+    if (activeTab === 'Completed') return isCompleted(s);
+    if (activeTab === 'Cancelled') return s === 'CANCELLED';
     return true;
   });
 
@@ -183,27 +184,33 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
             />
           }
           renderItem={({ item }) => {
-            const product = item.product;
-            const imageUrl = product?.images?.[0];
+            // Backend returns items[] array; grab first item info
+            const firstItem = item.items?.[0] || {};
+            const imageUrl = firstItem.image_url || item.product?.images?.[0];
+            const productTitle = firstItem.title || item.product?.title || 'Campus Item';
+            const sellerName = firstItem.seller_name || item.seller?.name || 'Seller';
+            const totalAmount = Number(item.total_amount || item.total_price || 0);
             const statusStyle = STATUS_CONFIG[item.status] || {
-              label: item.status,
+              label: item.status || 'Unknown',
               bg: Colors.borderLight,
               text: Colors.textSecondary,
             };
-            const isActive = ['PENDING', 'CONFIRMED', 'SHIPPED'].includes(item.status);
-            const isPending = item.status === 'PENDING';
+            const orderIsActive = isActive(item.status);
+            const canCancel = ['PENDING_MEETUP', 'PENDING'].includes(item.status);
+            const needsPayment = item.status === 'PENDING_PAYMENT';
+            const hasOtp = item.delivery_otp && !item.otp_verified && (item.status === 'PENDING_MEETUP' || item.status === 'PAID_PENDING_MEETUP');
             const isCancelling = cancellingId === item.id;
-            const formattedDate = new Date(item.created_at).toLocaleDateString('en-IN', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            });
+            const formattedDate = item.created_at
+              ? new Date(item.created_at).toLocaleDateString('en-IN', {
+                  day: 'numeric', month: 'short', year: 'numeric',
+                })
+              : 'Recent';
 
             return (
               <View style={[styles.orderCard, Shadow.sm]}>
                 {/* Header Row: Date & Status */}
                 <View style={styles.orderTopRow}>
-                  <Text style={styles.orderDate}>{formattedDate}</Text>
+                  <Text style={styles.orderDate}>Order #{item.id?.slice(0, 8) || '—'}</Text>
                   <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
                     <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>
                       {statusStyle.label}
@@ -225,25 +232,51 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
 
                   <View style={styles.productInfo}>
                     <Text numberOfLines={2} style={styles.productTitle}>
-                      {product?.title || 'Campus Item'}
+                      {productTitle}
                     </Text>
-                    <Text style={styles.qtyText}>Qty: {item.quantity}</Text>
+                    <Text style={styles.qtyText}>{formattedDate} · Seller: {sellerName}</Text>
                     <Text style={styles.totalPrice}>
-                      Total: ₹{item.total_price.toLocaleString('en-IN')}
+                      ₹{totalAmount.toLocaleString('en-IN')} · {item.payment_method === 'ONLINE' ? 'Online' : 'Cash/UPI'}
                     </Text>
+                    {item.meetup_location ? (
+                      <Text style={styles.meetupText}>📍 {item.meetup_location}</Text>
+                    ) : null}
                   </View>
                 </View>
 
+                {/* OTP Box for buyer */}
+                {hasOtp ? (
+                  <View style={styles.otpBox}>
+                    <Text style={styles.otpLabel}>YOUR DELIVERY OTP</Text>
+                    <Text style={styles.otpValue}>{item.delivery_otp}</Text>
+                    <Text style={styles.otpHint}>Share this with the seller ONLY after receiving your item.</Text>
+                  </View>
+                ) : null}
+
+                {/* Pay Now for PENDING_PAYMENT */}
+                {needsPayment ? (
+                  <TouchableOpacity
+                    style={styles.payBtn}
+                    onPress={() =>
+                      navigation.navigate('PaymentWebView', { orderId: item.id, amount: totalAmount })
+                    }
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="card-outline" size={16} color={Colors.white} style={{ marginRight: 6 }} />
+                    <Text style={styles.payBtnText}>Pay Now · ₹{totalAmount.toLocaleString('en-IN')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+
                 {/* Action Buttons */}
                 <View style={styles.actionsContainer}>
-                  {isActive && (
+                  {orderIsActive && (
                     <TouchableOpacity
                       style={styles.chatBtn}
                       onPress={() =>
                         navigation.navigate('ChatRoom', {
                           orderId: item.id,
-                          sellerName: item.seller?.name || 'Seller',
-                          productName: product?.title || 'Item',
+                          sellerName,
+                          productName: productTitle,
                         })
                       }
                       activeOpacity={0.8}
@@ -253,7 +286,7 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
                     </TouchableOpacity>
                   )}
 
-                  {isPending && (
+                  {canCancel && (
                     <TouchableOpacity
                       style={styles.cancelBtn}
                       onPress={() => handleCancelOrder(item.id)}
@@ -459,6 +492,52 @@ const styles = StyleSheet.create({
     fontSize: Typography.sm,
     fontWeight: '600',
     color: Colors.danger,
+  },
+  meetupText: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  otpBox: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1.5,
+    borderColor: '#86efac',
+    borderRadius: BorderRadius.md,
+    padding: 12,
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  otpLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#15803d',
+    letterSpacing: 1,
+  },
+  otpValue: {
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 6,
+    color: '#166534',
+    marginVertical: 4,
+  },
+  otpHint: {
+    fontSize: 10,
+    color: '#166534',
+    textAlign: 'center',
+  },
+  payBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ea580c',
+    borderRadius: BorderRadius.md,
+    paddingVertical: 10,
+    marginVertical: 8,
+  },
+  payBtnText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: 14,
   },
 });
 

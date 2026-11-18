@@ -33,8 +33,14 @@ export interface Product {
 
 export interface CartItem {
   id: string;
+  cart_item_id: string;
   product_id: string;
+  title: string;
+  price: number;
+  image_url?: string;
+  stock: number;
   quantity: number;
+  seller_name?: string;
   product: Product;
 }
 

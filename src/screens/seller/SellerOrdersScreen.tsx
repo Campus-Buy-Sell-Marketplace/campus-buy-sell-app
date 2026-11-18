@@ -8,7 +8,6 @@ import {
   Image,
   RefreshControl,
   ActivityIndicator,
-  Modal,
   TextInput,
   Alert,
   StatusBar,
@@ -17,41 +16,36 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Shadow, Spacing, Typography, BorderRadius } from '../../constants/theme';
-import { sellerService } from '../../services/sellerService';
-import { Avatar } from '../../components/common/Avatar';
-import { Badge } from '../../components/common/Badge';
-import { Order, OrderStatus } from '../../types';
+import { orderService } from '../../services/orderService';
 
-type OrderFilter = 'All' | 'Pending' | 'Confirmed' | 'Shipped' | 'Delivered' | 'Cancelled';
-
-const FILTER_TABS: OrderFilter[] = [
-  'All',
-  'Pending',
-  'Confirmed',
-  'Shipped',
-  'Delivered',
-  'Cancelled',
-];
+type OrderFilter = 'All' | 'Pending' | 'Completed' | 'Cancelled';
+const FILTER_TABS: OrderFilter[] = ['All', 'Pending', 'Completed', 'Cancelled'];
 
 interface SellerOrdersScreenProps {
   navigation: any;
 }
+
+const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+  PENDING_MEETUP:       { label: 'Pending Meetup',   bg: '#fef3c7', text: '#b45309' },
+  PAID_PENDING_MEETUP:  { label: 'Paid – Meetup',    bg: '#dbeafe', text: '#1d4ed8' },
+  PENDING_PAYMENT:      { label: 'Awaiting Payment', bg: '#fff7ed', text: '#c2410c' },
+  COMPLETED:            { label: 'Completed',         bg: '#dcfce7', text: '#15803d' },
+  CANCELLED:            { label: 'Cancelled',         bg: '#fee2e2', text: '#b91c1c' },
+};
 
 export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigation }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<OrderFilter>('All');
-
-  // Status Action Modal
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
-  const [statusModalVisible, setStatusModalVisible] = useState(false);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  // OTP verification state per order
+  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     try {
-      const data = await sellerService.getSellerOrders();
+      const data = await orderService.getSellerIncomingOrders();
       setOrders(data || []);
     } catch (err) {
       setOrders([]);
@@ -70,92 +64,54 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
     fetchOrders(true);
   };
 
-  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
-    setUpdatingStatus(true);
+  const handleVerifyOtp = async (orderId: string) => {
+    const otp = (otpInputs[orderId] || '').trim();
+    if (otp.length !== 6) {
+      Alert.alert('Invalid OTP', 'Please enter the 6-digit OTP from the buyer.');
+      return;
+    }
+    setVerifyingId(orderId);
     try {
-      await sellerService.updateOrderStatus(orderId, newStatus);
+      await orderService.verifyDeliveryOtp(orderId, otp);
+      Alert.alert('✅ Verified!', 'Order marked as completed. Handover confirmed!');
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        prev.map((o) => (o.id === orderId ? { ...o, status: 'COMPLETED', otp_verified: true } : o))
       );
-      setStatusModalVisible(false);
-      setSelectedOrder(null);
-      Alert.alert('Status Updated', `Order marked as ${newStatus}.`);
+      setOtpInputs((prev) => ({ ...prev, [orderId]: '' }));
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to update order status.';
-      Alert.alert('Error', msg);
+      Alert.alert('Verification Failed', err?.response?.data?.message || 'OTP is incorrect. Please try again.');
     } finally {
-      setUpdatingStatus(false);
+      setVerifyingId(null);
     }
   };
 
   const filteredOrders = orders.filter((order) => {
     if (activeFilter === 'All') return true;
     const s = (order.status || '').toUpperCase();
-    return s.includes(activeFilter.toUpperCase());
+    if (activeFilter === 'Pending') return s.includes('PENDING');
+    if (activeFilter === 'Completed') return s === 'COMPLETED';
+    if (activeFilter === 'Cancelled') return s === 'CANCELLED';
+    return true;
   });
 
-  const getStatusButtonConfig = (status: string) => {
-    const s = (status || '').toUpperCase();
-    if (s === 'PENDING') {
-      return {
-        label: 'Confirm Order',
-        nextStatus: 'CONFIRMED',
-        bg: '#eff6ff',
-        text: '#2563eb',
-        borderColor: '#bfdbfe',
-      };
-    }
-    if (s === 'CONFIRMED') {
-      return {
-        label: 'Mark Shipped',
-        nextStatus: 'SHIPPED',
-        bg: '#f5f3ff',
-        text: '#7c3aed',
-        borderColor: '#ddd6fe',
-      };
-    }
-    if (s === 'SHIPPED') {
-      return {
-        label: 'Mark Delivered',
-        nextStatus: 'DELIVERED',
-        bg: '#ecfdf5',
-        text: '#059669',
-        borderColor: '#a7f3d0',
-      };
-    }
-    return null;
-  };
-
   const renderOrderItem = ({ item }: { item: any }) => {
-    const productName =
-      item.product?.title ||
-      item.product_title ||
-      (item.items && item.items[0]?.title) ||
-      'Product';
-    const productImg =
-      item.product?.images?.[0] ||
-      item.product?.image_url ||
-      item.image_url ||
-      (item.items && item.items[0]?.image_url);
-    const buyerName =
-      item.buyer?.name || item.buyer_name || 'Campus Student';
-    const buyerAvatar = item.buyer?.avatar_url;
-    const totalPrice = Number(
-      item.total_price || item.total_amount || item.price || 0
-    );
-    const quantity =
-      item.quantity ||
-      (item.items && item.items[0]?.quantity) ||
-      1;
+    const firstItem = item.items?.[0] || {};
+    const productName = firstItem.title || item.product?.title || 'Product';
+    const productImg = firstItem.image_url || item.product?.images?.[0];
+    const buyerName = item.buyer?.name || item.buyer_name || 'Campus Student';
+    const totalPrice = Number(item.total_amount || item.total_price || 0);
+    const quantity = firstItem.quantity || item.quantity || 1;
     const dateFormatted = item.created_at
-      ? new Date(item.created_at).toLocaleDateString()
+      ? new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
       : 'Recent';
-    const status = (item.status || 'PENDING').toUpperCase();
-    const actionConfig = getStatusButtonConfig(status);
+    const status = item.status || 'PENDING_MEETUP';
+    const statusCfg = STATUS_CONFIG[status] || { label: status, bg: Colors.borderLight, text: Colors.textSecondary };
+    const needsOtp = (status === 'PENDING_MEETUP' || status === 'PAID_PENDING_MEETUP') && !item.otp_verified;
+    const isVerifying = verifyingId === item.id;
 
     return (
       <View style={[styles.orderCard, Shadow.sm]}>
-        {/* Top: Product Info & Badge */}
+        {/* Product & Status */}
         <View style={styles.cardHeader}>
           <View style={styles.productThumb}>
             {productImg ? (
@@ -165,74 +121,71 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
             )}
           </View>
           <View style={styles.headerInfo}>
-            <Text style={styles.productTitle} numberOfLines={2}>
-              {productName}
-            </Text>
-            <Text style={styles.orderMeta}>
-              Qty: {quantity} • {dateFormatted}
-            </Text>
+            <Text style={styles.productTitle} numberOfLines={2}>{productName}</Text>
+            <Text style={styles.orderMeta}>Qty: {quantity} · {dateFormatted}</Text>
+            <Text style={styles.orderMeta}>Buyer: {buyerName}</Text>
           </View>
-          <Badge label={status} type="status" />
+          <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
+            <Text style={[styles.statusBadgeText, { color: statusCfg.text }]}>{statusCfg.label}</Text>
+          </View>
         </View>
 
-        {/* Middle: Buyer Details & Total Price */}
-        <View style={styles.buyerRow}>
-          <View style={styles.buyerLeft}>
-            <Avatar uri={buyerAvatar} name={buyerName} size="sm" />
-            <View style={styles.buyerNames}>
-              <Text style={styles.buyerLabel}>Buyer</Text>
-              <Text style={styles.buyerName} numberOfLines={1}>
-                {buyerName}
-              </Text>
+        {/* Price + payment method */}
+        <View style={styles.priceRow}>
+          <Text style={styles.totalAmount}>₹{totalPrice.toLocaleString('en-IN')}</Text>
+          <Text style={styles.payMethod}>{item.payment_method === 'ONLINE' ? '💳 Online' : '💵 Cash/UPI'}</Text>
+        </View>
+
+        {item.meetup_location ? (
+          <Text style={styles.meetupText}>📍 {item.meetup_location}</Text>
+        ) : null}
+
+        {/* OTP Verification */}
+        {needsOtp ? (
+          <View style={styles.otpSection}>
+            <Text style={styles.otpSectionTitle}>Verify Delivery OTP</Text>
+            <Text style={styles.otpSectionHint}>Ask the buyer for their 6-digit OTP after handover.</Text>
+            <View style={styles.otpInputRow}>
+              <TextInput
+                style={styles.otpInput}
+                placeholder="Enter 6-digit OTP"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={otpInputs[item.id] || ''}
+                onChangeText={(txt) => setOtpInputs((prev) => ({ ...prev, [item.id]: txt }))}
+              />
+              <TouchableOpacity
+                style={[styles.verifyBtn, isVerifying && { opacity: 0.6 }]}
+                onPress={() => handleVerifyOtp(item.id)}
+                disabled={isVerifying}
+                activeOpacity={0.85}
+              >
+                {isVerifying ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.verifyBtnText}>Verify</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
-          <View style={styles.priceContainer}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalAmount}>₹{totalPrice.toFixed(2)}</Text>
-          </View>
-        </View>
+        ) : null}
 
-        {/* Bottom: Action Buttons */}
-        <View style={styles.actionRow}>
-          {actionConfig ? (
-            <TouchableOpacity
-              style={[
-                styles.statusUpdateButton,
-                { backgroundColor: actionConfig.bg, borderColor: actionConfig.borderColor },
-              ]}
-              activeOpacity={0.8}
-              onPress={() => {
-                setSelectedOrder(item);
-                setStatusModalVisible(true);
-              }}
-            >
-              <Text style={[styles.statusUpdateText, { color: actionConfig.text }]}>
-                {actionConfig.label}
-              </Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.statusCompletePill}>
-              <Text style={styles.statusCompleteText}>
-                {status === 'DELIVERED' ? '✓ Completed' : status}
-              </Text>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.chatButton}
-            activeOpacity={0.8}
-            onPress={() =>
-              navigation.navigate('ChatRoom', {
-                orderId: item.id,
-                buyerName: buyerName,
-                productName: productName,
-              })
-            }
-          >
-            <Ionicons name="chatbubble-ellipses" size={16} color={Colors.white} />
-            <Text style={styles.chatButtonText}>Chat</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Chat Button */}
+        <TouchableOpacity
+          style={styles.chatButton}
+          activeOpacity={0.8}
+          onPress={() =>
+            navigation.navigate('ChatRoom', {
+              orderId: item.id,
+              sellerName: buyerName,
+              productName,
+            })
+          }
+        >
+          <Ionicons name="chatbubble-ellipses" size={16} color={Colors.white} />
+          <Text style={styles.chatButtonText}>Chat with Buyer</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -243,10 +196,8 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Orders</Text>
-        <Text style={styles.headerSubtitle}>
-          {orders.length} total orders received
-        </Text>
+        <Text style={styles.headerTitle}>Incoming Orders</Text>
+        <Text style={styles.headerSubtitle}>{orders.length} total orders received</Text>
       </View>
 
       {/* Filter Tabs */}
@@ -265,9 +216,7 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
                 activeOpacity={0.7}
                 onPress={() => setActiveFilter(item)}
               >
-                <Text
-                  style={[styles.tabChipText, isSelected && styles.tabChipTextActive]}
-                >
+                <Text style={[styles.tabChipText, isSelected && styles.tabChipTextActive]}>
                   {item}
                 </Text>
               </TouchableOpacity>
@@ -300,125 +249,12 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyTitle}>No orders in this status</Text>
-              <Text style={styles.emptySub}>
-                Orders placed for your items will appear here.
-              </Text>
+              <Text style={styles.emptyTitle}>No orders yet</Text>
+              <Text style={styles.emptySub}>Orders placed for your items will appear here.</Text>
             </View>
           }
         />
       )}
-
-      {/* Status Update Options Modal */}
-      <Modal
-        visible={statusModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setStatusModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setStatusModalVisible(false)}
-        >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Update Order Status</Text>
-              <TouchableOpacity
-                onPress={() => setStatusModalVisible(false)}
-                style={styles.closeBtn}
-              >
-                <Ionicons name="close" size={20} color={Colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalSubtitle}>
-              Update progress for order #{selectedOrder?.id?.slice(0, 8) || ''}:
-            </Text>
-
-            <View style={styles.statusOptions}>
-              <TouchableOpacity
-                style={[styles.statusOptionItem, { borderColor: '#bfdbfe', backgroundColor: '#eff6ff' }]}
-                onPress={() =>
-                  selectedOrder && handleUpdateStatus(selectedOrder.id, 'CONFIRMED')
-                }
-                disabled={updatingStatus}
-              >
-                <Ionicons name="checkmark-circle-outline" size={20} color="#2563eb" />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.statusOptionTitle, { color: '#2563eb' }]}>
-                    Confirm Order
-                  </Text>
-                  <Text style={styles.statusOptionSub}>
-                    Accept order and prepare for delivery
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.statusOptionItem, { borderColor: '#ddd6fe', backgroundColor: '#f5f3ff' }]}
-                onPress={() =>
-                  selectedOrder && handleUpdateStatus(selectedOrder.id, 'SHIPPED')
-                }
-                disabled={updatingStatus}
-              >
-                <Ionicons name="bicycle-outline" size={20} color="#7c3aed" />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.statusOptionTitle, { color: '#7c3aed' }]}>
-                    Mark as Shipped / Out for Handoff
-                  </Text>
-                  <Text style={styles.statusOptionSub}>
-                    Item is en route to campus meetup spot
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.statusOptionItem, { borderColor: '#a7f3d0', backgroundColor: '#ecfdf5' }]}
-                onPress={() =>
-                  selectedOrder && handleUpdateStatus(selectedOrder.id, 'DELIVERED')
-                }
-                disabled={updatingStatus}
-              >
-                <Ionicons name="checkmark-done-circle-outline" size={20} color="#059669" />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.statusOptionTitle, { color: '#059669' }]}>
-                    Mark as Delivered
-                  </Text>
-                  <Text style={styles.statusOptionSub}>
-                    Buyer has received the item
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.statusOptionItem, { borderColor: '#fecaca', backgroundColor: '#fef2f2' }]}
-                onPress={() =>
-                  selectedOrder && handleUpdateStatus(selectedOrder.id, 'CANCELLED')
-                }
-                disabled={updatingStatus}
-              >
-                <Ionicons name="close-circle-outline" size={20} color="#dc2626" />
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.statusOptionTitle, { color: '#dc2626' }]}>
-                    Cancel Order
-                  </Text>
-                  <Text style={styles.statusOptionSub}>
-                    Cancel this order and notify buyer
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {updatingStatus && (
-              <View style={styles.updatingLoader}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-                <Text style={styles.updatingText}>Updating order...</Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 };
@@ -443,6 +279,81 @@ const styles = StyleSheet.create({
     fontSize: Typography.sm,
     color: Colors.textSecondary,
     marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+  },
+  statusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase' as const,
+  },
+  priceRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingVertical: Spacing.xs,
+  },
+  payMethod: {
+    fontSize: Typography.xs,
+    color: Colors.textMuted,
+  },
+  meetupText: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginBottom: 4,
+  },
+  otpSection: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    borderRadius: BorderRadius.md,
+    padding: 12,
+    marginVertical: 8,
+  },
+  otpSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#15803d',
+    marginBottom: 2,
+  },
+  otpSectionHint: {
+    fontSize: 11,
+    color: '#166534',
+    marginBottom: 8,
+  },
+  otpInputRow: {
+    flexDirection: 'row' as const,
+    gap: 8,
+    alignItems: 'center' as const,
+  },
+  otpInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#86efac',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    letterSpacing: 4,
+    color: Colors.text,
+    backgroundColor: Colors.white,
+    textAlign: 'center' as const,
+  },
+  verifyBtn: {
+    backgroundColor: '#16a34a',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  verifyBtnText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: 14,
   },
   filterTabsWrap: {
     paddingVertical: Spacing.sm,
