@@ -6,5 +6,5 @@ function requireEnvVar(key: string, fallback?: string): string {
   }
   return value;
 }
-export const API_BASE_URL: string = requireEnvVar('EXPO_PUBLIC_API_URL', 'http://10.20.19.53:5000/api');
-export const SOCKET_URL: string = requireEnvVar('EXPO_PUBLIC_SOCKET_URL', 'http://10.20.19.53:5000');
+export const API_BASE_URL: string = requireEnvVar('EXPO_PUBLIC_API_URL', 'https://campus-buy-sell-backend.onrender.com/api');
+export const SOCKET_URL: string = requireEnvVar('EXPO_PUBLIC_SOCKET_URL', 'https://campus-buy-sell-backend.onrender.com');
