@@ -176,6 +176,11 @@ export const PaymentWebViewScreen: React.FC<PaymentWebViewScreenProps> = ({
       name: 'Campus Marketplace',
       description: 'Order #${(initData.orderId || '').slice(0, 8).toUpperCase()}',
       order_id: '${initData.razorpayOrderId}',
+      prefill: {
+        name: 'Campus Student',
+        email: 'student@campus.edu',
+        contact: '9999999999'
+      },
       handler: function(response) {
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'PAYMENT_SUCCESS',
