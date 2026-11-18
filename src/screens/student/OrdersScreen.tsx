@@ -17,6 +17,7 @@ import { Colors } from '../../constants/colors';
 import { Shadow, Spacing, Typography, BorderRadius } from '../../constants/theme';
 import EmptyState from '../../components/common/EmptyState';
 import { orderService } from '../../services/orderService';
+import { Order, OrderStatus } from '../../types';
 
 interface OrdersScreenProps {
   navigation: any;
@@ -25,26 +26,24 @@ interface OrdersScreenProps {
 type TabType = 'All' | 'Active' | 'Completed' | 'Cancelled';
 const TABS: TabType[] = ['All', 'Active', 'Completed', 'Cancelled'];
 
-// Match real backend statuses
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  PENDING_MEETUP:       { label: 'Pending Meetup',  bg: '#fef3c7', text: '#b45309' },
-  PAID_PENDING_MEETUP:  { label: 'Paid – Meetup',   bg: '#dbeafe', text: '#1d4ed8' },
-  PENDING_PAYMENT:      { label: 'Awaiting Payment', bg: '#fff7ed', text: '#c2410c' },
-  COMPLETED:            { label: 'Completed',         bg: '#dcfce7', text: '#15803d' },
-  CANCELLED:            { label: 'Cancelled',         bg: '#fee2e2', text: '#b91c1c' },
-  // legacy fallbacks
-  PENDING:    { label: 'Pending',   bg: '#fef3c7', text: '#b45309' },
-  CONFIRMED:  { label: 'Confirmed', bg: '#dbeafe', text: '#1d4ed8' },
-  SHIPPED:    { label: 'Shipped',   bg: '#f3e8ff', text: '#7e22ce' },
-  DELIVERED:  { label: 'Delivered', bg: '#dcfce7', text: '#15803d' },
+const STATUS_CONFIG: Record<
+  OrderStatus,
+  { label: string; bg: string; text: string }
+> = {
+  PENDING_MEETUP: { label: 'Meetup Pending', bg: '#fef3c7', text: '#b45309' },     // Amber
+  PAID_PENDING_MEETUP: { label: 'Paid – Meetup', bg: '#dbeafe', text: '#1d4ed8' }, // Blue
+  PENDING_PAYMENT: { label: 'Payment Pending', bg: '#fce7f3', text: '#be185d' },   // Pink
+  CONFIRMED: { label: 'Confirmed', bg: '#eff6ff', text: '#2563eb' },               // Blue
+  COMPLETED: { label: 'Completed', bg: '#dcfce7', text: '#15803d' },               // Green
+  CANCELLED: { label: 'Cancelled', bg: '#fee2e2', text: '#b91c1c' },              // Red
 };
 
 export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<TabType>('All');
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [revealedOtps, setRevealedOtps] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async (isRefresh = false) => {
@@ -70,46 +69,29 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
     fetchOrders(true);
   };
 
-  const handleCancelOrder = (orderId: string) => {
-    Alert.alert(
-      'Cancel Order',
-      'Are you sure you want to cancel this order?',
-      [
-        { text: 'Keep Order', style: 'cancel' },
-        {
-          text: 'Cancel Order',
-          style: 'destructive',
-          onPress: async () => {
-            setCancellingId(orderId);
-            try {
-              await orderService.cancelOrder(orderId);
-              setOrders((prev) =>
-                prev.map((o) =>
-                  o.id === orderId ? { ...o, status: 'CANCELLED' } : o
-                )
-              );
-              Alert.alert('Order Cancelled', 'Your order was successfully cancelled.');
-            } catch (err: any) {
-              Alert.alert('Error', err?.response?.data?.message || 'Failed to cancel order.');
-            } finally {
-              setCancellingId(null);
-            }
-          },
-        },
-      ]
-    );
+  const toggleOtpReveal = (orderId: string) => {
+    setRevealedOtps((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) {
+        next.delete(orderId);
+      } else {
+        next.add(orderId);
+      }
+      return next;
+    });
   };
 
-  const isActive = (status: string) =>
-    ['PENDING_MEETUP', 'PAID_PENDING_MEETUP', 'PENDING_PAYMENT', 'PENDING', 'CONFIRMED', 'SHIPPED'].includes(status);
-  const isCompleted = (status: string) => ['COMPLETED', 'DELIVERED'].includes(status);
-
   const filteredOrders = orders.filter((order) => {
-    const s = order.status || '';
     if (activeTab === 'All') return true;
-    if (activeTab === 'Active') return isActive(s);
-    if (activeTab === 'Completed') return isCompleted(s);
-    if (activeTab === 'Cancelled') return s === 'CANCELLED';
+    if (activeTab === 'Active') {
+      return ['PENDING_MEETUP', 'PAID_PENDING_MEETUP', 'PENDING_PAYMENT', 'CONFIRMED'].includes(order.status);
+    }
+    if (activeTab === 'Completed') {
+      return order.status === 'COMPLETED';
+    }
+    if (activeTab === 'Cancelled') {
+      return order.status === 'CANCELLED';
+    }
     return true;
   });
 
@@ -184,33 +166,27 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
             />
           }
           renderItem={({ item }) => {
-            // Backend returns items[] array; grab first item info
-            const firstItem = item.items?.[0] || {};
-            const imageUrl = firstItem.image_url || item.product?.images?.[0];
-            const productTitle = firstItem.title || item.product?.title || 'Campus Item';
-            const sellerName = firstItem.seller_name || item.seller?.name || 'Seller';
-            const totalAmount = Number(item.total_amount || item.total_price || 0);
+            const product = item.product;
+            const imageUrl = product?.images?.[0];
             const statusStyle = STATUS_CONFIG[item.status] || {
-              label: item.status || 'Unknown',
+              label: item.status,
               bg: Colors.borderLight,
               text: Colors.textSecondary,
             };
-            const orderIsActive = isActive(item.status);
-            const canCancel = ['PENDING_MEETUP', 'PENDING'].includes(item.status);
-            const needsPayment = item.status === 'PENDING_PAYMENT';
-            const hasOtp = item.delivery_otp && !item.otp_verified && (item.status === 'PENDING_MEETUP' || item.status === 'PAID_PENDING_MEETUP');
-            const isCancelling = cancellingId === item.id;
-            const formattedDate = item.created_at
-              ? new Date(item.created_at).toLocaleDateString('en-IN', {
-                  day: 'numeric', month: 'short', year: 'numeric',
-                })
-              : 'Recent';
+            const isActive = ['PENDING_MEETUP', 'PAID_PENDING_MEETUP', 'PENDING_PAYMENT', 'CONFIRMED'].includes(item.status);
+            const hasOtp = item.delivery_otp && ['PENDING_MEETUP', 'PAID_PENDING_MEETUP'].includes(item.status);
+            const isOtpRevealed = revealedOtps.has(item.id);
+            const formattedDate = new Date(item.created_at).toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            });
 
             return (
               <View style={[styles.orderCard, Shadow.sm]}>
                 {/* Header Row: Date & Status */}
                 <View style={styles.orderTopRow}>
-                  <Text style={styles.orderDate}>Order #{item.id?.slice(0, 8) || '—'}</Text>
+                  <Text style={styles.orderDate}>{formattedDate}</Text>
                   <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
                     <Text style={[styles.statusBadgeText, { color: statusStyle.text }]}>
                       {statusStyle.label}
@@ -232,51 +208,25 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
 
                   <View style={styles.productInfo}>
                     <Text numberOfLines={2} style={styles.productTitle}>
-                      {productTitle}
+                      {product?.title || 'Campus Item'}
                     </Text>
-                    <Text style={styles.qtyText}>{formattedDate} · Seller: {sellerName}</Text>
+                    <Text style={styles.qtyText}>Qty: {item.quantity}</Text>
                     <Text style={styles.totalPrice}>
-                      ₹{totalAmount.toLocaleString('en-IN')} · {item.payment_method === 'ONLINE' ? 'Online' : 'Cash/UPI'}
+                      Total: ₹{item.total_price.toLocaleString('en-IN')}
                     </Text>
-                    {item.meetup_location ? (
-                      <Text style={styles.meetupText}>📍 {item.meetup_location}</Text>
-                    ) : null}
                   </View>
                 </View>
 
-                {/* OTP Box for buyer */}
-                {hasOtp ? (
-                  <View style={styles.otpBox}>
-                    <Text style={styles.otpLabel}>YOUR DELIVERY OTP</Text>
-                    <Text style={styles.otpValue}>{item.delivery_otp}</Text>
-                    <Text style={styles.otpHint}>Share this with the seller ONLY after receiving your item.</Text>
-                  </View>
-                ) : null}
-
-                {/* Pay Now for PENDING_PAYMENT */}
-                {needsPayment ? (
-                  <TouchableOpacity
-                    style={styles.payBtn}
-                    onPress={() =>
-                      navigation.navigate('PaymentWebView', { orderId: item.id, amount: totalAmount })
-                    }
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="card-outline" size={16} color={Colors.white} style={{ marginRight: 6 }} />
-                    <Text style={styles.payBtnText}>Pay Now · ₹{totalAmount.toLocaleString('en-IN')}</Text>
-                  </TouchableOpacity>
-                ) : null}
-
                 {/* Action Buttons */}
                 <View style={styles.actionsContainer}>
-                  {orderIsActive && (
+                  {isActive && (
                     <TouchableOpacity
                       style={styles.chatBtn}
                       onPress={() =>
                         navigation.navigate('ChatRoom', {
                           orderId: item.id,
-                          sellerName,
-                          productName: productTitle,
+                          sellerName: item.seller?.name || 'Seller',
+                          productName: product?.title || 'Item',
                         })
                       }
                       activeOpacity={0.8}
@@ -286,18 +236,36 @@ export const OrdersScreen: React.FC<OrdersScreenProps> = ({ navigation }) => {
                     </TouchableOpacity>
                   )}
 
-                  {canCancel && (
+                  {item.status === 'PENDING_PAYMENT' && (
                     <TouchableOpacity
-                      style={styles.cancelBtn}
-                      onPress={() => handleCancelOrder(item.id)}
-                      disabled={isCancelling}
+                      style={styles.payNowBtn}
+                      onPress={() =>
+                        navigation.navigate('PaymentWebView', {
+                          orderId: item.id,
+                        })
+                      }
                       activeOpacity={0.8}
                     >
-                      {isCancelling ? (
-                        <ActivityIndicator size="small" color={Colors.danger} />
-                      ) : (
-                        <Text style={styles.cancelBtnText}>Cancel Order</Text>
-                      )}
+                      <Ionicons name="card-outline" size={16} color={Colors.white} style={{ marginRight: 6 }} />
+                      <Text style={styles.payNowBtnText}>Pay Now</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {hasOtp && (
+                    <TouchableOpacity
+                      style={styles.otpBtn}
+                      onPress={() => toggleOtpReveal(item.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={isOtpRevealed ? 'eye-off-outline' : 'eye-outline'}
+                        size={16}
+                        color={Colors.white}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text style={styles.otpBtnText}>
+                        {isOtpRevealed ? item.delivery_otp : 'Show OTP'}
+                      </Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -493,51 +461,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.danger,
   },
-  meetupText: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-  otpBox: {
-    backgroundColor: '#f0fdf4',
-    borderWidth: 1.5,
-    borderColor: '#86efac',
+  otpBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: '#7c3aed',
     borderRadius: BorderRadius.md,
-    padding: 12,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  otpLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#15803d',
-    letterSpacing: 1,
-  },
-  otpValue: {
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: 6,
-    color: '#166534',
-    marginVertical: 4,
-  },
-  otpHint: {
-    fontSize: 10,
-    color: '#166534',
-    textAlign: 'center',
-  },
-  payBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ea580c',
-    borderRadius: BorderRadius.md,
-    paddingVertical: 10,
-    marginVertical: 8,
   },
-  payBtnText: {
-    color: Colors.white,
+  otpBtnText: {
+    fontSize: Typography.sm,
     fontWeight: '700',
-    fontSize: 14,
+    color: Colors.white,
+    letterSpacing: 1,
+  },
+  payNowBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: '#059669',
+    borderRadius: BorderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  payNowBtnText: {
+    fontSize: Typography.sm,
+    fontWeight: '700',
+    color: Colors.white,
   },
 });
 

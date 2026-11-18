@@ -11,13 +11,14 @@ export interface CheckoutParams {
 
 export interface CheckoutResult {
   orderId: string;
-  deliveryOtp: string;
+  deliveryOtp?: string;
   paymentMethod: string;
   totalAmount: number;
   meetupLocation?: string;
   meetupTime?: string;
   meetupNotes?: string;
   items?: any[];
+  razorpayOrderId?: string;
 }
 
 export const orderService = {
@@ -28,11 +29,15 @@ export const orderService = {
     return data.orders ?? [];
   },
 
-  async getSellerIncomingOrders(): Promise<any[]> {
+  async getSellerOrders(): Promise<Order[]> {
     const res = await apiClient.get('/orders/seller/incoming');
     const data = res.data.data ?? res.data;
     if (Array.isArray(data)) return data;
     return data.orders ?? [];
+  },
+
+  async getSellerIncomingOrders(): Promise<any[]> {
+    return this.getSellerOrders();
   },
 
   async getOrderById(id: string): Promise<Order> {
@@ -40,7 +45,7 @@ export const orderService = {
     return res.data.data ?? res.data.order ?? res.data;
   },
 
-  async checkout(params: CheckoutParams): Promise<{ message: string; order: CheckoutResult }> {
+  async checkout(params: CheckoutParams): Promise<{ message?: string; order: any; deliveryOtp?: string; razorpayOrderId?: string }> {
     const res = await apiClient.post('/orders/checkout', {
       paymentMethod: params.paymentMethod || 'OFFLINE',
       meetupLocation: params.meetupLocation || 'Campus Central Library Gate',
@@ -48,7 +53,7 @@ export const orderService = {
       meetupNotes: params.meetupNotes?.trim() || undefined,
       items: params.items,
     });
-    return res.data;
+    return res.data.data ?? res.data;
   },
 
   async verifyDeliveryOtp(orderId: string, otp: string): Promise<{ message: string }> {

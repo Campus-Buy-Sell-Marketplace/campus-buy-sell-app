@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -85,7 +85,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   };
 
   const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out of LAVSA?', [
+    Alert.alert('Sign Out', 'Are you sure you want to sign out of UniTrade?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',

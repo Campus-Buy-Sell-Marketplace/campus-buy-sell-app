@@ -8,6 +8,7 @@ import {
   Image,
   RefreshControl,
   ActivityIndicator,
+  Modal,
   TextInput,
   Alert,
   StatusBar,
@@ -16,36 +17,40 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Shadow, Spacing, Typography, BorderRadius } from '../../constants/theme';
+import { sellerService } from '../../services/sellerService';
 import { orderService } from '../../services/orderService';
+import { Avatar } from '../../components/common/Avatar';
+import { Badge } from '../../components/common/Badge';
+import { Order, OrderStatus } from '../../types';
 
-type OrderFilter = 'All' | 'Pending' | 'Completed' | 'Cancelled';
-const FILTER_TABS: OrderFilter[] = ['All', 'Pending', 'Completed', 'Cancelled'];
+type OrderFilter = 'All' | 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
+
+const FILTER_TABS: OrderFilter[] = [
+  'All',
+  'Pending',
+  'Confirmed',
+  'Completed',
+  'Cancelled',
+];
 
 interface SellerOrdersScreenProps {
   navigation: any;
 }
-
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  PENDING_MEETUP:       { label: 'Pending Meetup',   bg: '#fef3c7', text: '#b45309' },
-  PAID_PENDING_MEETUP:  { label: 'Paid – Meetup',    bg: '#dbeafe', text: '#1d4ed8' },
-  PENDING_PAYMENT:      { label: 'Awaiting Payment', bg: '#fff7ed', text: '#c2410c' },
-  COMPLETED:            { label: 'Completed',         bg: '#dcfce7', text: '#15803d' },
-  CANCELLED:            { label: 'Cancelled',         bg: '#fee2e2', text: '#b91c1c' },
-};
 
 export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigation }) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<OrderFilter>('All');
-  // OTP verification state per order
+
+  // OTP Verification state
   const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
-  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [verifyingOtp, setVerifyingOtp] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
     try {
-      const data = await orderService.getSellerIncomingOrders();
+      const data = await orderService.getSellerOrders();
       setOrders(data || []);
     } catch (err) {
       setOrders([]);
@@ -70,48 +75,80 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
       Alert.alert('Invalid OTP', 'Please enter the 6-digit OTP from the buyer.');
       return;
     }
-    setVerifyingId(orderId);
+    setVerifyingOtp(orderId);
     try {
       await orderService.verifyDeliveryOtp(orderId, otp);
-      Alert.alert('✅ Verified!', 'Order marked as completed. Handover confirmed!');
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: 'COMPLETED', otp_verified: true } : o))
+        prev.map((o) => (o.id === orderId ? { ...o, status: 'COMPLETED' } : o))
       );
       setOtpInputs((prev) => ({ ...prev, [orderId]: '' }));
+      Alert.alert('✅ Delivery Confirmed!', 'The order has been marked as completed.');
     } catch (err: any) {
-      Alert.alert('Verification Failed', err?.response?.data?.message || 'OTP is incorrect. Please try again.');
+      const msg = err?.response?.data?.message || 'OTP verification failed. Please check and try again.';
+      Alert.alert('Verification Failed', msg);
     } finally {
-      setVerifyingId(null);
+      setVerifyingOtp(null);
     }
   };
 
   const filteredOrders = orders.filter((order) => {
     if (activeFilter === 'All') return true;
     const s = (order.status || '').toUpperCase();
-    if (activeFilter === 'Pending') return s.includes('PENDING');
+    if (activeFilter === 'Pending') return s === 'PENDING_MEETUP' || s === 'PENDING_PAYMENT';
+    if (activeFilter === 'Confirmed') return s === 'CONFIRMED' || s === 'PAID_PENDING_MEETUP';
     if (activeFilter === 'Completed') return s === 'COMPLETED';
     if (activeFilter === 'Cancelled') return s === 'CANCELLED';
     return true;
   });
 
+  const getStatusLabel = (status: string) => {
+    const s = (status || '').toUpperCase();
+    if (s === 'PENDING_MEETUP') return { label: 'Meetup Pending', bg: '#fef3c7', text: '#b45309' };
+    if (s === 'PAID_PENDING_MEETUP') return { label: 'Paid – Meetup', bg: '#dbeafe', text: '#1d4ed8' };
+    if (s === 'PENDING_PAYMENT') return { label: 'Payment Pending', bg: '#fce7f3', text: '#be185d' };
+    if (s === 'CONFIRMED') return { label: 'Confirmed', bg: '#eff6ff', text: '#2563eb' };
+    if (s === 'COMPLETED') return { label: 'Completed', bg: '#dcfce7', text: '#15803d' };
+    if (s === 'CANCELLED') return { label: 'Cancelled', bg: '#fee2e2', text: '#b91c1c' };
+    return { label: status, bg: Colors.borderLight, text: Colors.textSecondary };
+  };
+
+  const canVerifyOtp = (status: string) => {
+    const s = (status || '').toUpperCase();
+    return s === 'PENDING_MEETUP' || s === 'PAID_PENDING_MEETUP';
+  };
+
   const renderOrderItem = ({ item }: { item: any }) => {
-    const firstItem = item.items?.[0] || {};
-    const productName = firstItem.title || item.product?.title || 'Product';
-    const productImg = firstItem.image_url || item.product?.images?.[0];
-    const buyerName = item.buyer?.name || item.buyer_name || 'Campus Student';
-    const totalPrice = Number(item.total_amount || item.total_price || 0);
-    const quantity = firstItem.quantity || item.quantity || 1;
+    const productName =
+      item.product?.title ||
+      item.product_title ||
+      (item.items && item.items[0]?.title) ||
+      'Product';
+    const productImg =
+      item.product?.images?.[0] ||
+      item.product?.image_url ||
+      item.image_url ||
+      (item.items && item.items[0]?.image_url);
+    const buyerName =
+      item.buyer?.name || item.buyer_name || 'Campus Student';
+    const buyerAvatar = item.buyer?.avatar_url;
+    const totalPrice = Number(
+      item.total_price || item.total_amount || item.price || 0
+    );
+    const quantity =
+      item.quantity ||
+      (item.items && item.items[0]?.quantity) ||
+      1;
     const dateFormatted = item.created_at
-      ? new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+      ? new Date(item.created_at).toLocaleDateString()
       : 'Recent';
-    const status = item.status || 'PENDING_MEETUP';
-    const statusCfg = STATUS_CONFIG[status] || { label: status, bg: Colors.borderLight, text: Colors.textSecondary };
-    const needsOtp = (status === 'PENDING_MEETUP' || status === 'PAID_PENDING_MEETUP') && !item.otp_verified;
-    const isVerifying = verifyingId === item.id;
+    const status = (item.status || 'PENDING_MEETUP').toUpperCase();
+    const statusConfig = getStatusLabel(status);
+    const needsOtp = canVerifyOtp(status);
+    const isVerifyingThisOrder = verifyingOtp === item.id;
 
     return (
       <View style={[styles.orderCard, Shadow.sm]}>
-        {/* Product & Status */}
+        {/* Top: Product Info & Badge */}
         <View style={styles.cardHeader}>
           <View style={styles.productThumb}>
             {productImg ? (
@@ -121,47 +158,60 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
             )}
           </View>
           <View style={styles.headerInfo}>
-            <Text style={styles.productTitle} numberOfLines={2}>{productName}</Text>
-            <Text style={styles.orderMeta}>Qty: {quantity} · {dateFormatted}</Text>
-            <Text style={styles.orderMeta}>Buyer: {buyerName}</Text>
+            <Text style={styles.productTitle} numberOfLines={2}>
+              {productName}
+            </Text>
+            <Text style={styles.orderMeta}>
+              Qty: {quantity} • {dateFormatted}
+            </Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusCfg.bg }]}>
-            <Text style={[styles.statusBadgeText, { color: statusCfg.text }]}>{statusCfg.label}</Text>
+          <View style={[styles.statusPill, { backgroundColor: statusConfig.bg }]}>
+            <Text style={[styles.statusPillText, { color: statusConfig.text }]}>
+              {statusConfig.label}
+            </Text>
           </View>
         </View>
 
-        {/* Price + payment method */}
-        <View style={styles.priceRow}>
-          <Text style={styles.totalAmount}>₹{totalPrice.toLocaleString('en-IN')}</Text>
-          <Text style={styles.payMethod}>{item.payment_method === 'ONLINE' ? '💳 Online' : '💵 Cash/UPI'}</Text>
+        {/* Middle: Buyer Details & Total Price */}
+        <View style={styles.buyerRow}>
+          <View style={styles.buyerLeft}>
+            <Avatar uri={buyerAvatar} name={buyerName} size="sm" />
+            <View style={styles.buyerNames}>
+              <Text style={styles.buyerLabel}>Buyer</Text>
+              <Text style={styles.buyerName} numberOfLines={1}>
+                {buyerName}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.priceContainer}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalAmount}>₹{totalPrice.toFixed(2)}</Text>
+          </View>
         </View>
 
-        {item.meetup_location ? (
-          <Text style={styles.meetupText}>📍 {item.meetup_location}</Text>
-        ) : null}
-
-        {/* OTP Verification */}
-        {needsOtp ? (
+        {/* OTP Verification for PENDING_MEETUP orders */}
+        {needsOtp && (
           <View style={styles.otpSection}>
-            <Text style={styles.otpSectionTitle}>Verify Delivery OTP</Text>
-            <Text style={styles.otpSectionHint}>Ask the buyer for their 6-digit OTP after handover.</Text>
-            <View style={styles.otpInputRow}>
+            <Text style={styles.otpLabel}>Enter buyer's delivery OTP to confirm:</Text>
+            <View style={styles.otpRow}>
               <TextInput
                 style={styles.otpInput}
-                placeholder="Enter 6-digit OTP"
+                value={otpInputs[item.id] || ''}
+                onChangeText={(text) =>
+                  setOtpInputs((prev) => ({ ...prev, [item.id]: text.replace(/[^0-9]/g, '').slice(0, 6) }))
+                }
+                placeholder="6-digit OTP"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="number-pad"
                 maxLength={6}
-                value={otpInputs[item.id] || ''}
-                onChangeText={(txt) => setOtpInputs((prev) => ({ ...prev, [item.id]: txt }))}
               />
               <TouchableOpacity
-                style={[styles.verifyBtn, isVerifying && { opacity: 0.6 }]}
+                style={[styles.verifyBtn, isVerifyingThisOrder && { opacity: 0.6 }]}
                 onPress={() => handleVerifyOtp(item.id)}
-                disabled={isVerifying}
-                activeOpacity={0.85}
+                disabled={isVerifyingThisOrder}
+                activeOpacity={0.8}
               >
-                {isVerifying ? (
+                {isVerifyingThisOrder ? (
                   <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
                   <Text style={styles.verifyBtnText}>Verify</Text>
@@ -169,23 +219,31 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
               </TouchableOpacity>
             </View>
           </View>
-        ) : null}
+        )}
 
-        {/* Chat Button */}
-        <TouchableOpacity
-          style={styles.chatButton}
-          activeOpacity={0.8}
-          onPress={() =>
-            navigation.navigate('ChatRoom', {
-              orderId: item.id,
-              sellerName: buyerName,
-              productName,
-            })
-          }
-        >
-          <Ionicons name="chatbubble-ellipses" size={16} color={Colors.white} />
-          <Text style={styles.chatButtonText}>Chat with Buyer</Text>
-        </TouchableOpacity>
+        {/* Bottom: Chat Button */}
+        <View style={styles.actionRow}>
+          <View style={styles.statusCompletePill}>
+            <Text style={styles.statusCompleteText}>
+              {status === 'COMPLETED' ? '✓ Completed' : status === 'CANCELLED' ? '✗ Cancelled' : `Order #${item.id?.slice(0, 8)}`}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.chatButton}
+            activeOpacity={0.8}
+            onPress={() =>
+              navigation.navigate('ChatRoom', {
+                orderId: item.id,
+                buyerName: buyerName,
+                productName: productName,
+              })
+            }
+          >
+            <Ionicons name="chatbubble-ellipses" size={16} color={Colors.white} />
+            <Text style={styles.chatButtonText}>Chat</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -196,8 +254,10 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Incoming Orders</Text>
-        <Text style={styles.headerSubtitle}>{orders.length} total orders received</Text>
+        <Text style={styles.headerTitle}>Orders</Text>
+        <Text style={styles.headerSubtitle}>
+          {orders.length} total orders received
+        </Text>
       </View>
 
       {/* Filter Tabs */}
@@ -216,7 +276,9 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
                 activeOpacity={0.7}
                 onPress={() => setActiveFilter(item)}
               >
-                <Text style={[styles.tabChipText, isSelected && styles.tabChipTextActive]}>
+                <Text
+                  style={[styles.tabChipText, isSelected && styles.tabChipTextActive]}
+                >
                   {item}
                 </Text>
               </TouchableOpacity>
@@ -249,12 +311,16 @@ export const SellerOrdersScreen: React.FC<SellerOrdersScreenProps> = ({ navigati
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyTitle}>No orders yet</Text>
-              <Text style={styles.emptySub}>Orders placed for your items will appear here.</Text>
+              <Text style={styles.emptyTitle}>No orders in this status</Text>
+              <Text style={styles.emptySub}>
+                Orders placed for your items will appear here.
+              </Text>
             </View>
           }
         />
       )}
+
+      {/* Status Update Options Modal - removed, now using inline OTP */}
     </SafeAreaView>
   );
 };
@@ -279,81 +345,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.sm,
     color: Colors.textSecondary,
     marginTop: 2,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.sm,
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase' as const,
-  },
-  priceRow: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    paddingVertical: Spacing.xs,
-  },
-  payMethod: {
-    fontSize: Typography.xs,
-    color: Colors.textMuted,
-  },
-  meetupText: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    marginBottom: 4,
-  },
-  otpSection: {
-    backgroundColor: '#f0fdf4',
-    borderWidth: 1,
-    borderColor: '#86efac',
-    borderRadius: BorderRadius.md,
-    padding: 12,
-    marginVertical: 8,
-  },
-  otpSectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#15803d',
-    marginBottom: 2,
-  },
-  otpSectionHint: {
-    fontSize: 11,
-    color: '#166534',
-    marginBottom: 8,
-  },
-  otpInputRow: {
-    flexDirection: 'row' as const,
-    gap: 8,
-    alignItems: 'center' as const,
-  },
-  otpInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#86efac',
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 16,
-    letterSpacing: 4,
-    color: Colors.text,
-    backgroundColor: Colors.white,
-    textAlign: 'center' as const,
-  },
-  verifyBtn: {
-    backgroundColor: '#16a34a',
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  verifyBtnText: {
-    color: Colors.white,
-    fontWeight: '700',
-    fontSize: 14,
   },
   filterTabsWrap: {
     paddingVertical: Spacing.sm,
@@ -489,15 +480,60 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
   },
-  statusUpdateButton: {
-    flex: 1,
-    paddingVertical: 9,
+  statusPill: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    alignSelf: 'flex-start',
+  },
+  statusPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  otpSection: {
+    backgroundColor: '#f8fafc',
     borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  otpLabel: {
+    fontSize: Typography.xs,
+    color: Colors.textSecondary,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  otpRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    alignItems: 'center',
+  },
+  otpInput: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    fontSize: Typography.sm,
+    letterSpacing: 2,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  verifyBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    minWidth: 70,
   },
-  statusUpdateText: {
+  verifyBtnText: {
+    color: Colors.white,
     fontSize: Typography.xs,
     fontWeight: '700',
   },

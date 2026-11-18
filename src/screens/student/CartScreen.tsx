@@ -113,8 +113,13 @@ export const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
       });
 
       await refreshCart();
-      setConfirmedOrder(res.order);
-      setShowSuccessModal(true);
+      if (paymentMethod === 'ONLINE') {
+        const orderId = res.order?.id || (res.order as any)?.orderId || (res as any).orderId;
+        navigation.navigate('PaymentWebView', { orderId });
+      } else {
+        setConfirmedOrder(res.order);
+        setShowSuccessModal(true);
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to complete checkout.';
       setError(msg);

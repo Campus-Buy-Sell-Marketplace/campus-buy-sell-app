@@ -27,7 +27,7 @@ apiClient.interceptors.response.use(
   async (error: any) => {
     if (error.response?.status === 401) {
       try {
-        await AsyncStorage.multiRemove(['authToken', 'userData']);
+        await (AsyncStorage as any).multiRemove(['authToken', 'userData']);
       } catch {}
     }
     return Promise.reject(error);

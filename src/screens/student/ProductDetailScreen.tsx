@@ -94,7 +94,7 @@ export const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
     if (!product) return;
     try {
       await Share.share({
-        message: `Check out ${product.title} on LAVSA Campus Marketplace for ?${product.price.toLocaleString('en-IN')}!`,
+        message: `Check out ${product.title} on UniTrade Campus Marketplace for ₹${product.price.toLocaleString('en-IN')}!`,
       });
     } catch (error) {
       // ignore

@@ -48,7 +48,7 @@ export const productService = {
 
   async updateProduct(id: string, data: FormData | Record<string, any>): Promise<Product> {
     const headers = data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : undefined;
-    const res = await apiClient.put(`/products/${id}`, data, { headers });
+    const res = await apiClient.patch(`/products/${id}`, data, { headers });
     return res.data.data ?? res.data.product ?? res.data;
   },
 
@@ -57,7 +57,7 @@ export const productService = {
   },
 
   async getMyProducts(): Promise<Product[]> {
-    const res = await apiClient.get('/products/my');
+    const res = await apiClient.get('/products/seller/my-listings');
     const data = res.data.data ?? res.data;
     return Array.isArray(data) ? data : (data.products ?? []);
   },

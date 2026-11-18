@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -35,7 +35,7 @@ const SORT_OPTIONS = [
 ];
 
 export const BrowseScreen: React.FC<BrowseScreenProps> = ({ navigation }) => {
-  const searchInputRef = useRef<TextInput>(null);
+  const searchInputRef = useRef<any>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');

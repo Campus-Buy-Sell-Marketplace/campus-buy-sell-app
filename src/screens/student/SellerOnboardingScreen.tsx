@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -86,10 +86,9 @@ export const SellerOnboardingScreen: React.FC<SellerOnboardingScreenProps> = ({
     setError(null);
     try {
       await sellerService.applyAsSeller({
-        business_name: businessName.trim(),
+        businessName: businessName.trim(),
         description: description.trim(),
-        phone: phone.trim(),
-        college: college.trim(),
+        contactNumber: phone.trim(),
       });
       setSubmitted(true);
     } catch (err: any) {
@@ -275,7 +274,7 @@ export const SellerOnboardingScreen: React.FC<SellerOnboardingScreenProps> = ({
                 style={{ marginRight: 10 }}
               />
               <Text style={styles.termsText}>
-                I agree to the LAVSA Seller Terms, authentic student listing policy, and campus code of conduct.
+                I agree to the UniTrade Seller Terms, authentic student listing policy, and campus code of conduct.
               </Text>
             </TouchableOpacity>
           </View>
