@@ -65,7 +65,10 @@ export const AdminUsersScreen: React.FC<AdminUsersScreenProps> = () => {
           if (pageToLoad === 1) {
             setUsers(data);
           } else {
-            setUsers((prev) => [...prev, ...data]);
+            setUsers((prev) => {
+              const existingIds = new Set(prev.map((u) => u.id));
+              return [...prev, ...data.filter((u: any) => !existingIds.has(u.id))];
+            });
           }
           setHasMore(data.length >= 10);
         } else {

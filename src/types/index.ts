@@ -177,6 +177,10 @@ export type SellerStackParamList = {
   SellerTabs: undefined;
   AddEditProduct: { productId?: string };
   ChatRoom: { orderId: string; buyerName: string; productName: string };
+  EditProfile: undefined;
+  Settings: undefined;
+  Notifications: undefined;
+  OrdersScreen: undefined;
 };
 
 export type AdminTabParamList = {

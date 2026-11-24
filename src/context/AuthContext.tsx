@@ -104,7 +104,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
-    dispatch({ type: 'LOADING' });
     try {
       const res = await authService.login(credentials);
       dispatch({ type: 'LOGIN_SUCCESS', payload: res });
@@ -116,7 +115,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const register = async (data: RegisterData) => {
-    dispatch({ type: 'LOADING' });
     try {
       const res = await authService.register(data);
       dispatch({ type: 'LOGIN_SUCCESS', payload: res });
@@ -128,7 +126,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const googleLogin = async (googleToken: string) => {
-    dispatch({ type: 'LOADING' });
     try {
       const res = await authService.googleLogin(googleToken);
       dispatch({ type: 'LOGIN_SUCCESS', payload: res });

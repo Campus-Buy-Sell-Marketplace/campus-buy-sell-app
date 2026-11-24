@@ -14,10 +14,15 @@ import SellerPayoutsScreen from '../screens/seller/SellerPayoutsScreen';
 import AddEditProductScreen from '../screens/seller/AddEditProductScreen';
 import ProfileScreen from '../screens/student/ProfileScreen';
 import ChatRoomScreen from '../screens/student/ChatRoomScreen';
+import EditProfileScreen from '../screens/student/EditProfileScreen';
+import SettingsScreen from '../screens/student/SettingsScreen';
+import NotificationsScreen from '../screens/student/NotificationsScreen';
+import OrdersScreen from '../screens/student/OrdersScreen';
 
 const Tab = createBottomTabNavigator<SellerTabParamList>();
 const ProductsStack = createNativeStackNavigator<SellerStackParamList>();
 const OrdersStack = createNativeStackNavigator<SellerStackParamList>();
+const ProfileStack = createNativeStackNavigator<SellerStackParamList>();
 
 function ProductsStackNavigator() {
   return (
@@ -34,6 +39,18 @@ function OrdersStackNavigator() {
       <OrdersStack.Screen name="SellerTabs" component={SellerOrdersScreen} />
       <OrdersStack.Screen name="ChatRoom" component={ChatRoomScreen} />
     </OrdersStack.Navigator>
+  );
+}
+
+function ProfileStackNavigator() {
+  return (
+    <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
+      <ProfileStack.Screen name="SellerTabs" component={ProfileScreen} />
+      <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <ProfileStack.Screen name="Settings" component={SettingsScreen} />
+      <ProfileStack.Screen name="Notifications" component={NotificationsScreen} />
+      <ProfileStack.Screen name="OrdersScreen" component={OrdersScreen} />
+    </ProfileStack.Navigator>
   );
 }
 
@@ -90,7 +107,7 @@ export const SellerNavigator: React.FC = () => {
       />
       <Tab.Screen
         name="ProfileTab"
-        component={ProfileScreen}
+        component={ProfileStackNavigator}
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, focused }) => (
