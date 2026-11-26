@@ -44,7 +44,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <TouchableOpacity
-      activeOpacity={0.75}
+      activeOpacity={0.78}
       onPress={isInteractive ? onPress : undefined}
       disabled={!isInteractive}
       style={[
@@ -86,7 +86,7 @@ export const Button: React.FC<ButtonProps> = ({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   },
   // Variants
   primary: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.primary,
   },
   secondary: {
     backgroundColor: Colors.borderLight,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: Colors.black,
+    borderColor: Colors.primary,
   },
   danger: {
     backgroundColor: Colors.danger,
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   text_outline: {
-    color: Colors.black,
+    color: Colors.primary,
   },
   text_danger: {
     color: Colors.white,

@@ -10,7 +10,7 @@ export interface LoadingScreenProps {
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({ message }) => {
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color={Colors.black} />
+      <ActivityIndicator size="large" color={Colors.primary} />
       {message ? <Text style={styles.message}>{message}</Text> : null}
     </View>
   );
@@ -19,7 +19,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ message }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,

@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
   },
   viewProfileText: {
     fontSize: Typography.xs,
-    color: Colors.accent,
+    color: Colors.primary,
     fontWeight: '500',
     marginTop: 2,
   },
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   buyNowBtn: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     alignItems: 'center',

@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   saveBtn: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     alignItems: 'center',

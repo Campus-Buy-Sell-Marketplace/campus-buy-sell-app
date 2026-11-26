@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   retryBtn: {
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.primary,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   },
   ordersBtn: {
     width: '100%',
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.primary,
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg,
     alignItems: 'center',

@@ -53,7 +53,9 @@ export const Input: React.FC<InputProps> = ({
 
   return (
     <View style={[styles.container, style]}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? (
+        <Text style={[styles.label, isFocused && styles.labelFocused]}>{label}</Text>
+      ) : null}
       <View
         style={[
           styles.inputContainer,
@@ -66,8 +68,8 @@ export const Input: React.FC<InputProps> = ({
         {leftIcon && (
           <Ionicons
             name={leftIcon}
-            size={20}
-            color={Colors.secondary}
+            size={18}
+            color={isFocused ? Colors.primary : Colors.textMuted}
             style={styles.leftIcon}
           />
         )}
@@ -93,8 +95,8 @@ export const Input: React.FC<InputProps> = ({
           >
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              size={20}
-              color={Colors.secondary}
+              size={18}
+              color={Colors.textMuted}
             />
           </TouchableOpacity>
         ) : rightIcon ? (
@@ -103,7 +105,7 @@ export const Input: React.FC<InputProps> = ({
             disabled={!onRightIconPress}
             style={styles.rightIcon}
           >
-            <Ionicons name={rightIcon} size={20} color={Colors.secondary} />
+            <Ionicons name={rightIcon} size={18} color={Colors.textMuted} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -118,20 +120,23 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    fontSize: Typography.base,
+    fontSize: Typography.sm,
     fontWeight: '500',
-    color: Colors.text,
+    color: Colors.textSecondary,
     marginBottom: Spacing.xs,
+  },
+  labelFocused: {
+    color: Colors.primary,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.md,
-    minHeight: 48,
+    minHeight: 50,
   },
   multilineContainer: {
     minHeight: 100,
@@ -156,7 +161,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   focused: {
-    borderColor: Colors.accent,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryFaint,
   },
   errorBorder: {
     borderColor: Colors.danger,

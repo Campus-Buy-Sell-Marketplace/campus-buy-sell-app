@@ -19,8 +19,8 @@ export const AdminNavigator: React.FC = () => {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: Colors.black,
-        tabBarInactiveTintColor: Colors.secondary,
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.textMuted,
         tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
@@ -70,12 +70,16 @@ export const AdminNavigator: React.FC = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.white,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    height: Platform.OS === 'ios' ? 80 : 60,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-    paddingTop: 8,
+    backgroundColor: Colors.surface,
+    borderTopWidth: 0,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    height: Platform.OS === 'ios' ? 80 : 65,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+    paddingTop: 5,
   },
   tabBarLabel: {
     fontSize: 11,

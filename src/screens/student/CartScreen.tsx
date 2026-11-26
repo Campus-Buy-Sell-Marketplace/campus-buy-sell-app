@@ -661,11 +661,11 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: Colors.text,
+    color: Colors.primary,
   },
   checkoutBtn: {
-    backgroundColor: '#111827',
-    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.xl,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -750,8 +750,8 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   modalPrimaryBtn: {
-    backgroundColor: '#111827',
-    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.xl,
     paddingVertical: 12,
     width: '100%',
     alignItems: 'center',

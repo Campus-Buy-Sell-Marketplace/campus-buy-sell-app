@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -108,7 +108,7 @@ export const SellerDashboardScreen: React.FC<SellerDashboardScreenProps> = ({ na
     {
       key: 'revenue',
       label: 'Total Revenue',
-      value: `₹${Number(stats.totalRevenue).toLocaleString('en-IN')}`,
+      value: `?${Number(stats.totalRevenue).toLocaleString('en-IN')}`,
       icon: 'cash',
       color: Colors.success,
       bgColor: '#ecfdf5',
@@ -118,7 +118,7 @@ export const SellerDashboardScreen: React.FC<SellerDashboardScreenProps> = ({ na
       label: 'Total Orders',
       value: stats.totalOrders,
       icon: 'receipt',
-      color: Colors.accent,
+      color: Colors.primary,
       bgColor: '#eff6ff',
     },
     {
@@ -231,7 +231,7 @@ export const SellerDashboardScreen: React.FC<SellerDashboardScreenProps> = ({ na
             activeOpacity={0.7}
             onPress={() => navigation.navigate('OrdersTab')}
           >
-            <Text style={styles.seeAllText}>View all →</Text>
+            <Text style={styles.seeAllText}>View all ?</Text>
           </TouchableOpacity>
         </View>
 
@@ -261,11 +261,11 @@ export const SellerDashboardScreen: React.FC<SellerDashboardScreenProps> = ({ na
                     {item.productName}
                   </Text>
                   <Text style={styles.orderBuyerName}>
-                    Buyer: {item.buyerName} • {item.date}
+                    Buyer: {item.buyerName} � {item.date}
                   </Text>
                 </View>
                 <View style={styles.orderRight}>
-                  <Text style={styles.orderPrice}>₹{item.price.toFixed(2)}</Text>
+                  <Text style={styles.orderPrice}>?{item.price.toFixed(2)}</Text>
                   <Badge label={item.status} type="status" />
                 </View>
               </TouchableOpacity>

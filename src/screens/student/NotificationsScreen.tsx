@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -46,15 +46,15 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
     switch (type?.toLowerCase()) {
       case 'order':
       case 'order_update':
-        return '🛒';
+        return '??';
       case 'chat':
       case 'new_message':
-        return '💬';
+        return '??';
       case 'product':
       case 'listing':
-        return '📦';
+        return '??';
       default:
-        return '🔔';
+        return '??';
     }
   };
 
@@ -148,7 +148,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({ naviga
 
       {notifications.length === 0 ? (
         <EmptyState
-          icon="🔔"
+          icon="??"
           title="No notifications yet"
           subtitle="We'll notify you when you have updates on your orders, messages, or saved items."
         />
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.primary,
     marginRight: Spacing.xs,
   },
   emptyDot: {

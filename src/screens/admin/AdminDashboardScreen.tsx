@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -102,8 +102,8 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
       key: 'users',
       label: 'Total Users',
       value: stats.totalUsers,
-      color: Colors.accent,
-      iconEmoji: '👥',
+      color: Colors.primary,
+      iconEmoji: '??',
       route: 'UsersTab',
     },
     {
@@ -111,7 +111,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
       label: 'Total Products',
       value: stats.totalProducts,
       color: '#7c3aed',
-      iconEmoji: '📦',
+      iconEmoji: '??',
       route: 'ListingsTab',
     },
     {
@@ -119,15 +119,15 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
       label: 'Total Orders',
       value: stats.totalOrders,
       color: Colors.success,
-      iconEmoji: '🛍️',
+      iconEmoji: '???',
       route: 'ListingsTab',
     },
     {
       key: 'revenue',
       label: 'Total Revenue',
-      value: `₹${Number(stats.totalRevenue).toLocaleString('en-IN')}`,
+      value: `?${Number(stats.totalRevenue).toLocaleString('en-IN')}`,
       color: Colors.warning,
-      iconEmoji: '💰',
+      iconEmoji: '??',
       route: 'PayoutsTab',
     },
   ];
@@ -178,7 +178,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
                 <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
               </View>
               <Text style={[styles.statValue, { color: item.color }]}>
-                {loading && !refreshing ? '—' : item.value}
+                {loading && !refreshing ? '�' : item.value}
               </Text>
               <Text style={styles.statLabel}>{item.label}</Text>
             </TouchableOpacity>
@@ -212,7 +212,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('UsersTab')}
               >
-                <Text style={styles.reviewBtnText}>Review →</Text>
+                <Text style={styles.reviewBtnText}>Review ?</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -240,7 +240,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({ navi
                 activeOpacity={0.7}
                 onPress={() => navigation.navigate('PayoutsTab')}
               >
-                <Text style={styles.reviewBtnText}>Process →</Text>
+                <Text style={styles.reviewBtnText}>Process ?</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.primary,
     marginRight: Spacing.sm,
   },
   activityContent: {

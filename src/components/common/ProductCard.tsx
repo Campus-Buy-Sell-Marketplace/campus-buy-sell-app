@@ -33,7 +33,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <TouchableOpacity
-      activeOpacity={0.85}
+      activeOpacity={0.88}
       onPress={onPress}
       style={[styles.card, style]}
     >
@@ -56,17 +56,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           >
             <Ionicons
               name={isWishlisted ? 'heart' : 'heart-outline'}
-              size={18}
-              color={isWishlisted ? Colors.danger : Colors.text}
+              size={16}
+              color={isWishlisted ? Colors.danger : Colors.textSecondary}
             />
           </TouchableOpacity>
         )}
       </View>
 
       <View style={styles.content}>
-        <View style={styles.badgeRow}>
-          <Badge label={product.condition} type="condition" />
-        </View>
+        <Badge label={product.condition} type="condition" style={styles.badge} />
 
         <Text numberOfLines={2} style={styles.title}>
           {product.title}
@@ -89,16 +87,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.borderLight,
-    ...Shadow.sm,
     width: '100%',
+    ...Shadow.md,
   },
   imageContainer: {
     width: '100%',
-    aspectRatio: 1,
+    aspectRatio: 4 / 3,
     backgroundColor: Colors.borderLight,
     position: 'relative',
   },
@@ -118,36 +114,38 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: Spacing.xs,
     right: Spacing.xs,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: Colors.white,
     borderRadius: BorderRadius.full,
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadow.sm,
   },
   content: {
     padding: Spacing.sm,
+    paddingBottom: Spacing.md,
   },
-  badgeRow: {
-    marginBottom: Spacing.xs,
+  badge: {
+    marginBottom: 6,
   },
   title: {
-    fontSize: Typography.base,
-    fontWeight: '500',
+    fontSize: Typography.sm,
+    fontWeight: '600',
     color: Colors.text,
     marginBottom: 4,
-    minHeight: 36,
+    minHeight: 32,
+    lineHeight: 16,
   },
   price: {
-    fontSize: Typography.lg,
-    fontWeight: '700',
-    color: Colors.text,
+    fontSize: Typography.md,
+    fontWeight: '800',
+    color: Colors.primary,
     marginBottom: 2,
   },
   seller: {
-    fontSize: Typography.xs,
-    color: Colors.textSecondary,
+    fontSize: 10,
+    color: Colors.textMuted,
   },
 });
 

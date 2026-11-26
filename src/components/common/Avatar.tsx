@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, Image, StyleSheet, StyleProp } from 'react-native';
 import { Colors } from '../../constants/colors';
 
 export interface AvatarProps {
@@ -79,12 +79,12 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   fallback: {
-    backgroundColor: Colors.borderLight,
+    backgroundColor: Colors.primaryFaint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   initials: {
-    color: Colors.textSecondary,
+    color: Colors.primary,
     fontWeight: '700',
   },
 });

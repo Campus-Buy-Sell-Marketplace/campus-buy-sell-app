@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '../../constants/colors';
 import { Typography, Spacing } from '../../constants/theme';
 
@@ -31,7 +32,12 @@ export const SplashScreen: React.FC = () => {
   }, [logoOpacity, logoScale, subtitleOpacity]);
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#4f46e5', '#7c3aed', '#8b5cf6']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
       <Animated.View
         style={[
           styles.logoContainer,
@@ -54,14 +60,13 @@ export const SplashScreen: React.FC = () => {
       >
         Campus Buy & Sell Marketplace
       </Animated.Text>
-    </View>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.black,
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
@@ -71,7 +76,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   brandTitle: {
-    fontSize: 48,
+    fontSize: 52,
     fontWeight: '900',
     color: Colors.white,
     letterSpacing: 2,
@@ -80,7 +85,7 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: Spacing.md,
     fontSize: Typography.md,
-    color: Colors.textMuted,
+    color: 'rgba(255,255,255,0.78)',
     textAlign: 'center',
     letterSpacing: 0.5,
   },

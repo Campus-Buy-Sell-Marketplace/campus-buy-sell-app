@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   nextStepBtn: {
     flex: 1,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
   submitBtn: {
     flex: 1,
     paddingVertical: Spacing.md,
-    backgroundColor: Colors.black,
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',

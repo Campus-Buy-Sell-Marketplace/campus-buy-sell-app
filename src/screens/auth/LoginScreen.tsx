@@ -5,11 +5,13 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   Alert,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../../context/AuthContext';
@@ -80,12 +82,10 @@ export const LoginScreen: React.FC = () => {
     setErrorMessage(null);
     setGoogleLoading(true);
     try {
-      // In development / mobile environment, open backend Google auth or mock token
       const authUrl = `${API_BASE_URL.replace('/api', '')}/api/auth/google`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, 'unitrade://');
 
       if (result.type === 'success' && result.url) {
-        // Parse token from redirect URL
         const parsedUrl = new URL(result.url);
         const token = parsedUrl.searchParams.get('token');
         if (token) {
@@ -93,7 +93,6 @@ export const LoginScreen: React.FC = () => {
           return;
         }
       }
-      // If direct browser flow was cancelled or no token returned in dev:
       Alert.alert(
         'Google Authentication',
         'Google sign-in is configured with backend OAuth. To test in local development, you can also use one of the quick demo accounts below.'
@@ -121,7 +120,20 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={[]}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primary} />
+
+      {/* Gradient Hero Header */}
+      <LinearGradient
+        colors={['#4f46e5', '#7c3aed', '#8b5cf6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroGradient}
+      >
+        <Text style={styles.heroBrand}>{APP_NAME}.</Text>
+        <Text style={styles.heroTagline}>{APP_TAGLINE}</Text>
+      </LinearGradient>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
@@ -129,13 +141,8 @@ export const LoginScreen: React.FC = () => {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {/* Header Brand */}
-          <View style={styles.header}>
-            <Text style={styles.brandTitle}>{APP_NAME}.</Text>
-            <Text style={styles.tagline}>{APP_TAGLINE}</Text>
-          </View>
-
           {/* Tab Selector */}
           <View style={styles.tabContainer}>
             <TouchableOpacity
@@ -188,42 +195,45 @@ export const LoginScreen: React.FC = () => {
             </View>
           ) : null}
 
-          {/* Form Content */}
+          {/* Form Card */}
           <View style={styles.formCard}>
             {activeTab === 'register' ? (
               <Input
                 label="Full Name"
-                placeholder="e.g. Alex Johnson"
                 value={name}
                 onChangeText={setName}
+                placeholder="Your full name"
+                leftIcon="person-outline"
                 autoCapitalize="words"
               />
             ) : null}
 
             <Input
-              label="Campus Email"
-              placeholder="you@campus.edu"
+              label="Email"
               value={email}
               onChangeText={setEmail}
+              placeholder="your@email.com"
               keyboardType="email-address"
-              autoCapitalize="none"
+              leftIcon="mail-outline"
             />
 
             <Input
               label="Password"
-              placeholder="••••••••"
               value={password}
               onChangeText={setPassword}
+              placeholder="Password"
               secureTextEntry
+              leftIcon="lock-closed-outline"
             />
 
             {activeTab === 'register' ? (
               <Input
                 label="Confirm Password"
-                placeholder="••••••••"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
+                placeholder="Repeat your password"
                 secureTextEntry
+                leftIcon="lock-closed-outline"
               />
             ) : null}
 
@@ -232,16 +242,17 @@ export const LoginScreen: React.FC = () => {
               onPress={handleSubmit}
               loading={loading}
               style={styles.submitBtn}
+              size="lg"
             />
 
-            {/* Divider */}
+            {/* OR divider */}
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or continue with</Text>
+              <Text style={styles.dividerText}>or</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Google OAuth Button */}
+            {/* Google Sign In */}
             <TouchableOpacity
               style={styles.googleBtn}
               onPress={handleGoogleSignIn}
@@ -291,64 +302,66 @@ export const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    minHeight: '100%',
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.primary,
+  },
+  heroGradient: {
+    paddingTop: 48,
+    paddingBottom: 28,
+    paddingHorizontal: Spacing.xl,
+    alignItems: 'center',
+  },
+  heroBrand: {
+    fontSize: 40,
+    fontWeight: '900',
+    color: Colors.white,
+    letterSpacing: 1.5,
+  },
+  heroTagline: {
+    marginTop: 6,
+    fontSize: Typography.sm,
+    color: 'rgba(255,255,255,0.78)',
+    letterSpacing: 0.3,
   },
   keyboardView: {
     flex: 1,
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
   },
   scrollContent: {
     padding: Spacing.xl,
-    justifyContent: 'center',
-    minHeight: '100%',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-    marginTop: Spacing.md,
-  },
-  brandTitle: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: Colors.primary,
-    letterSpacing: 1.5,
-  },
-  tagline: {
-    marginTop: Spacing.xs,
-    fontSize: Typography.base,
-    color: Colors.textSecondary,
+    paddingBottom: 48,
   },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: Colors.borderLight,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.xl,
     padding: 4,
     marginBottom: Spacing.lg,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 11,
     alignItems: 'center',
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.lg,
   },
   activeTabButton: {
-    backgroundColor: Colors.white,
-    ...Shadow.sm,
+    backgroundColor: Colors.primary,
   },
   tabText: {
     fontSize: Typography.base,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.textSecondary,
   },
   activeTabText: {
-    color: Colors.primary,
-    fontWeight: '700',
+    color: Colors.white,
   },
   errorBanner: {
     backgroundColor: '#fef2f2',
     borderWidth: 1,
     borderColor: '#fecaca',
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.md,
   },
@@ -361,8 +374,9 @@ const styles = StyleSheet.create({
   formCard: {
     backgroundColor: Colors.surface,
     padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
     ...Shadow.md,
+    marginBottom: Spacing.lg,
   },
   submitBtn: {
     marginTop: Spacing.sm,
@@ -388,10 +402,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
-    paddingVertical: 11,
+    borderRadius: BorderRadius.xl,
+    paddingVertical: 12,
     ...Shadow.sm,
   },
   googleIcon: {
@@ -403,16 +417,16 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   testAccountsCard: {
-    marginTop: Spacing.xl,
     padding: Spacing.md,
     backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.xl,
     borderWidth: 1,
     borderColor: Colors.borderLight,
+    ...Shadow.sm,
   },
   testAccountsTitle: {
     fontSize: Typography.base,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 2,
   },
@@ -427,16 +441,16 @@ const styles = StyleSheet.create({
   },
   chip: {
     flex: 1,
-    paddingVertical: 8,
-    backgroundColor: Colors.borderLight,
+    paddingVertical: 9,
+    backgroundColor: Colors.primaryFaint,
     borderRadius: BorderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipText: {
     fontSize: Typography.xs,
-    fontWeight: '600',
-    color: Colors.text,
+    fontWeight: '700',
+    color: Colors.primary,
   },
 });
 
