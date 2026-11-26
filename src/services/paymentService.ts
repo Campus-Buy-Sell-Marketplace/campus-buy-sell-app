@@ -25,12 +25,14 @@ export interface PaymentVerifyResponse {
 export const paymentService = {
   async initPayment(orderId: string): Promise<PaymentInitResponse> {
     const res = await apiClient.post('/payments/init', { orderId });
-    return res.data;
+    // Handle both wrapped ({ data: { ... } }) and unwrapped response shapes
+    return res.data.data ?? res.data;
   },
 
   async verifyPayment(data: PaymentVerifyData): Promise<PaymentVerifyResponse> {
     const res = await apiClient.post('/payments/verify', data);
-    return res.data;
+    // Handle both wrapped and unwrapped response shapes
+    return res.data.data ?? res.data;
   },
 
   async getStatus(orderId: string): Promise<any> {
