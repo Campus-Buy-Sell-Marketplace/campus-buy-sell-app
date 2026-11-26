@@ -20,7 +20,7 @@ export const chatService = {
     if (socket?.connected) return socket;
     socket = io(SOCKET_URL, {
       auth: { token },
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
     });
     return socket;
   },

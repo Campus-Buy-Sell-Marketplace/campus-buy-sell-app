@@ -41,7 +41,7 @@ export const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) =>
       const orders = await orderService.getOrders();
       // Filter orders that are relevant for chats (Active or completed)
       const chatOrders = orders.filter((o) =>
-        ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED'].includes(o.status)
+        ['PENDING_MEETUP', 'PAID_PENDING_MEETUP', 'PENDING_PAYMENT', 'COMPLETED', 'CONFIRMED'].includes(o.status)
       );
 
       // Fetch last message for each conversation
